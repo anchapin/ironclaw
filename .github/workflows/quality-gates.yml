@@ -136,6 +136,8 @@ jobs:
             -i "**/.venv/**" \
             -i "**/node_modules/**" \
             -i "**/.git/**" \
+            -i "**/site-packages/**" \
+            -i "**/__pycache__/**" \
             --min-lines 10 \
             --reporters console
           echo "✅ Duplicate code check passed"
@@ -145,9 +147,12 @@ jobs:
           RESULT=$(jscpd agent/ \
             -i "**/.venv/**" \
             -i "**/node_modules/**" \
+            -i "**/.git/**" \
+            -i "**/site-packages/**" \
+            -i "**/__pycache__/**" \
             --min-lines 10 \
             --format json 2>&1)
-          
+
           if echo "$RESULT" | grep -q '"total".*"clones"."0"'; then
             echo "✅ No duplicate code found"
           elif echo "$RESULT" | grep -oP '"total".*"clones"."\K\d+' | awk '$0 > 5'; then

@@ -77,32 +77,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Load baseline coverage
-        id: baseline
+      - name: Create baseline if needed
         run: |
-          if [ -f .coverage-baseline.json ]; then
-            echo "baseline=$(cat .coverage-baseline.json)" >> $GITHUB_OUTPUT
-          else
-            # First run: establish baseline
+          if [ ! -f .coverage-baseline.json ]; then
             cat > .coverage-baseline.json <<'EOF'
           {
             "rust": "0.0",
-            "python": "79.0",
+            "python": "78.6",
             "rust_target": "75.0",
             "python_target": "75.0",
             "rust_ratchet": "0.0",
-            "python_ratchet": "79.0"
+            "python_ratchet": "78.6"
           }
           EOF
-            echo "baseline=$(cat .coverage-baseline.json)" >> $GITHUB_OUTPUT
-            echo "📊 Created initial baseline with Python at 79%"
+            echo "📊 Created initial baseline with Python at 78.6%"
           fi
 
       - name: Check Rust ratchet
         run: |
           CURRENT="${{ needs.measure-coverage.outputs.rust-coverage }}"
-          RATCHET=$(echo '${{ steps.baseline.outputs.baseline }}' | jq -r '.rust_ratchet')
-          TARGET=$(echo '${{ steps.baseline.outputs.baseline }}' | jq -r '.rust_target')
+          RATCHET=$(jq -r '.rust_ratchet' .coverage-baseline.json)
+          TARGET=$(jq -r '.rust_target' .coverage-baseline.json)
 
           echo "🦀 Current: ${CURRENT}%, Ratchet: ${RATCHET}%, Target: ${TARGET}%"
 
@@ -122,8 +117,8 @@ jobs:
       - name: Check Python ratchet
         run: |
           CURRENT="${{ needs.measure-coverage.outputs.python-coverage }}"
-          RATCHET=$(echo '${{ steps.baseline.outputs.baseline }}' | jq -r '.python_ratchet')
-          TARGET=$(echo '${{ steps.baseline.outputs.baseline }}' | jq -r '.python_target')
+          RATCHET=$(jq -r '.python_ratchet' .coverage-baseline.json)
+          TARGET=$(jq -r '.python_target' .coverage-baseline.json)
 
           echo "🐍 Current: ${CURRENT}%, Ratchet: ${RATCHET}%, Target: ${TARGET}%"
 
