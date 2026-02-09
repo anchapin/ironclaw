@@ -486,6 +486,16 @@ mod tests {
         // Custom method
         let custom: McpMethod = "custom/method".into();
         assert!(matches!(custom, McpMethod::Custom(_)));
+
+        // Test all method variants for coverage
+        assert_eq!(McpMethod::ResourcesList.as_str(), "resources/list");
+        assert_eq!(McpMethod::ResourcesRead.as_str(), "resources/read");
+        assert_eq!(McpMethod::PromptsList.as_str(), "prompts/list");
+        assert_eq!(McpMethod::PromptsGet.as_str(), "prompts/get");
+
+        // Test Custom variant with as_str()
+        let custom_method = McpMethod::Custom("my/custom".to_string());
+        assert_eq!(custom_method.as_str(), "my/custom");
     }
 
     #[test]
@@ -523,5 +533,76 @@ mod tests {
         assert!(req.params.is_some());
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains("\"params\""));
+    }
+
+    #[test]
+    fn test_request_notification() {
+        let req = McpRequest::notification(1, "tools/list");
+        assert_eq!(req.id, 1);
+        assert_eq!(req.method, "tools/list");
+        assert!(req.params.is_none());
+    }
+
+    #[test]
+    fn test_error_with_data() {
+        let data = serde_json::json!({"details": "Additional error info"});
+        let err = McpError::with_data(-32000, "Server error", data.clone());
+
+        assert_eq!(err.code, -32000);
+        assert_eq!(err.message, "Server error");
+        assert_eq!(err.data, Some(data));
+    }
+
+    #[test]
+    fn test_error_server_error() {
+        let err = McpError::server_error("Connection failed");
+        assert_eq!(err.code, -32000);
+        assert!(err.message.contains("Connection failed"));
+    }
+
+    #[test]
+    fn test_response_into_result_invalid() {
+        // Edge case: response with both result and error (invalid)
+        let invalid_resp = McpResponse {
+            jsonrpc: "2.0".to_string(),
+            id: 1,
+            result: Some(serde_json::json!({"status": "ok"})),
+            error: Some(McpError::internal_error("Error")),
+        };
+
+        let result = invalid_resp.into_result();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.code, -32603);
+        assert!(err.message.contains("Invalid response"));
+    }
+
+    #[test]
+    fn test_error_new() {
+        let err = McpError::new(-32001, "Custom error");
+        assert_eq!(err.code, -32001);
+        assert_eq!(err.message, "Custom error");
+        assert!(err.data.is_none());
+    }
+
+    #[test]
+    fn test_error_invalid_params() {
+        let err = McpError::invalid_params("Missing required field");
+        assert_eq!(err.code, -32602);
+        assert!(err.message.contains("Missing required field"));
+    }
+
+    #[test]
+    fn test_error_parse_error() {
+        let err = McpError::parse_error("Unexpected token");
+        assert_eq!(err.code, -32700);
+        assert!(err.message.contains("Unexpected token"));
+    }
+
+    #[test]
+    fn test_error_invalid_request() {
+        let err = McpError::invalid_request("Missing jsonrpc field");
+        assert_eq!(err.code, -32600);
+        assert!(err.message.contains("Missing jsonrpc field"));
     }
 }
