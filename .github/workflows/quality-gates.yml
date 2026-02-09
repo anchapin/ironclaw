@@ -153,13 +153,18 @@ jobs:
             --min-lines 10 \
             --format json 2>&1)
 
-          if echo "$RESULT" | grep -q '"total".*"clones"."0"'; then
+          # Parse JSON with jq instead of grep
+          CLONES=$(echo "$RESULT" | jq -r '.report.total.clones // 0')
+
+          echo "🔍 Duplicate code blocks found: $CLONES"
+
+          if [ "$CLONES" -eq 0 ]; then
             echo "✅ No duplicate code found"
-          elif echo "$RESULT" | grep -oP '"total".*"clones"."\K\d+' | awk '$0 > 5'; then
-            echo "❌ Too many duplicate code blocks (> 5)"
+          elif [ "$CLONES" -gt 5 ]; then
+            echo "❌ Too many duplicate code blocks ($CLONES > 5)"
             exit 1
           else
-            echo "✅ Duplicate count acceptable (≤ 5)"
+            echo "✅ Duplicate count acceptable ($CLONES ≤ 5)"
           fi
 
   bloat:
