@@ -8,7 +8,7 @@
 //! The implementation is organized into three layers:
 //!
 //! 1. **Protocol Layer** (`protocol`): JSON-RPC 2.0 message types
-//! 2. **Transport Layer** (`transport`): stdio and HTTP transports (TODO)
+//! 2. **Transport Layer** (`transport`): stdio and HTTP transports
 //! 3. **Client Layer** (`client`): High-level MCP client API (TODO)
 //!
 //! # Design Principles
@@ -21,11 +21,17 @@
 // Protocol layer: JSON-RPC 2.0 message types
 pub mod protocol;
 
+// Transport layer: stdio and HTTP transports
+pub mod transport;
+
 // Re-export commonly used types for convenience
 pub use protocol::{
     ClientCapabilities, ClientInfo, InitializeParams, McpError, McpMethod,
     McpRequest, McpResponse, ServerCapabilities, ServerInfo, Tool, ToolCallParams,
 };
+
+// Re-export transport types
+pub use transport::StdioTransport;
 
 // TODO: Remove placeholder client once transport and client layers are implemented
 #[deprecated(note = "Placeholder client - will be replaced with proper implementation")]
