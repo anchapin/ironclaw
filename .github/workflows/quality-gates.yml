@@ -151,9 +151,19 @@ jobs:
             -i "**/site-packages/**" \
             -i "**/__pycache__/**" \
             --min-lines 10 \
-            --format json 2>&1)
+            --format json)
 
-          # Parse JSON with jq instead of grep
+          # Validate JSON before parsing
+          if ! echo "$RESULT" | jq -e . >/dev/null 2>&1; then
+            echo "❌ Error: jscpd did not output valid JSON"
+            echo "This usually means jscpd encountered an error."
+            echo ""
+            echo "Raw output:"
+            echo "$RESULT"
+            exit 1
+          fi
+
+          # Parse JSON with jq
           CLONES=$(echo "$RESULT" | jq -r '.report.total.clones // 0')
 
           echo "🔍 Duplicate code blocks found: $CLONES"
