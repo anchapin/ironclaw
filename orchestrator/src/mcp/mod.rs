@@ -1,17 +1,38 @@
-// MCP (Model Context Protocol) Client Module
-//
-// Native MCP client implementation for connecting to standard MCP servers.
-//
-// Invariant: Must NOT implement proprietary "AgentSkills" - use standard MCP only.
+//! MCP (Model Context Protocol) Client Implementation
+//!
+//! This module provides a pure Rust implementation of the MCP client,
+//! built from scratch using Tokio and Hyper (no external SDK).
+//!
+//! # Architecture
+//!
+//! The implementation is organized into three layers:
+//!
+//! 1. **Protocol Layer** (`protocol`): JSON-RPC 2.0 message types
+//! 2. **Transport Layer** (`transport`): stdio and HTTP transports (TODO)
+//! 3. **Client Layer** (`client`): High-level MCP client API (TODO)
+//!
+//! # Design Principles
+//!
+//! - **Minimal Dependencies**: Only Tokio, Hyper, and Serde
+//! - **Auditability**: ~900 LOC total, fully readable
+//! - **Performance**: <100ms startup, <50ms round-trip (local)
+//! - **Type Safety**: Leverages Rust's type system for correctness
 
+// Protocol layer: JSON-RPC 2.0 message types
+pub mod protocol;
+
+// Re-export commonly used types for convenience
+pub use protocol::{
+    ClientCapabilities, ClientInfo, InitializeParams, McpError, McpMethod,
+    McpRequest, McpResponse, ServerCapabilities, ServerInfo, Tool, ToolCallParams,
+};
+
+// TODO: Remove placeholder client once transport and client layers are implemented
+#[deprecated(note = "Placeholder client - will be replaced with proper implementation")]
 use anyhow::Result;
 
-/// MCP client for connecting to MCP servers
-pub struct McpClient {
-    pub server_url: String,
-}
-
-/// Available tool from MCP server
+/// Available tool from MCP server (placeholder)
+#[deprecated(note = "Use protocol::Tool instead")]
 #[derive(Debug, Clone)]
 pub struct McpTool {
     pub name: String,
@@ -19,37 +40,26 @@ pub struct McpTool {
     pub parameters: serde_json::Value,
 }
 
+/// Placeholder MCP client (will be replaced)
+#[deprecated(note = "Use proper McpClient from client module when implemented")]
+pub struct McpClient {
+    pub server_url: String,
+}
+
 impl McpClient {
-    /// Create a new MCP client
+    /// Create a new placeholder MCP client
     pub fn new(server_url: String) -> Self {
         Self { server_url }
     }
 
-    /// Connect to MCP server
+    /// Connect to MCP server (placeholder)
     pub async fn connect(&self) -> Result<()> {
         tracing::info!("Connecting to MCP server: {}", self.server_url);
-
-        // TODO: Implement MCP connection
-        // 1. Open connection to server
-        // 2. Handshake (MCP protocol)
-        // 3. Initialize session
-
+        // TODO: Implement proper MCP connection
         Ok(())
     }
 
-    /// List available tools from MCP server
-    pub async fn list_tools(&self) -> Result<Vec<McpTool>> {
-        // TODO: Implement tool listing via MCP protocol
-        Ok(vec![])
-    }
-
-    /// Execute a tool via MCP
-    pub async fn execute_tool(&self, _name: &str, _args: serde_json::Value) -> Result<serde_json::Value> {
-        // TODO: Implement tool execution
-        Ok(serde_json::json!({}))
-    }
-
-    /// Disconnect from MCP server
+    /// Disconnect from MCP server (placeholder)
     pub async fn disconnect(&self) -> Result<()> {
         tracing::info!("Disconnecting from MCP server");
         Ok(())
@@ -61,15 +71,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_client_creation() {
-        let client = McpClient::new("http://localhost:3000".to_string());
-        assert_eq!(client.server_url, "http://localhost:3000");
+    fn test_protocol_module_available() {
+        // Test that we can create basic MCP requests
+        let req = McpRequest::new(1, "initialize", None);
+        assert_eq!(req.jsonrpc, "2.0");
+        assert_eq!(req.method, "initialize");
+    }
+
+    #[test]
+    fn test_error_creation() {
+        let err = McpError::method_not_found("test_method");
+        assert_eq!(err.code, -32601);
+        assert!(err.message.contains("test_method"));
     }
 
     #[tokio::test]
-    async fn test_connect_placeholder() {
+    async fn test_placeholder_client() {
         let client = McpClient::new("http://localhost:3000".to_string());
-        let result = client.connect().await;
-        assert!(result.is_ok());
+        assert!(client.connect().await.is_ok());
+        assert!(client.disconnect().await.is_ok());
     }
 }
