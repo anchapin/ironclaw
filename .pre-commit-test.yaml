@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: python-complexity
+        name: Python complexity check (radon)
+        entry: bash -c 'cd agent && source .venv/bin/activate && radon cc tests/ -a -nb --fail-on 20'
+        language: system
+        pass_filenames: false

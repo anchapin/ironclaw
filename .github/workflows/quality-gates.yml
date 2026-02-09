@@ -1,0 +1,236 @@
+name: Quality Gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+
+# Cancel in-progress runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-bypass:
+    name: Check Bypass Label
+    runs-on: ubuntu-latest
+    outputs:
+      should-bypass: ${{ steps.check-label.outputs.should-bypass }}
+    steps:
+      - name: Check for bypass label
+        id: check-label
+        run: |
+          if ${{ contains(github.event.pull_request.labels.*.name, 'quality: bypass') }}; then
+            echo "⚠️  Quality bypass requested via label"
+            echo "should-bypass=true" >> $GITHUB_OUTPUT
+          else
+            echo "should-bypass=false" >> $GITHUB_OUTPUT
+          fi
+        if: github.event_name == 'pull_request'
+      - name: No bypass for pushes
+        run: echo "should-bypass=false" >> $GITHUB_OUTPUT
+        if: github.event_name != 'pull_request'
+
+  complexity:
+    name: Complexity Analysis
+    runs-on: ubuntu-latest
+    needs: check-bypass
+    if: needs.check-bypass.outputs.should-bypass != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install radon
+        run: pip install radon
+
+      - name: Python complexity analysis
+        run: |
+          cd agent
+          radon cc . -a -nb
+          echo "✅ Complexity analysis passed"
+
+      - name: Check complexity threshold
+        run: |
+          cd agent
+          echo "Checking for blocks with complexity > 15..."
+          if radon cc . -a -nb | grep -E "\d+ blocks \([^)]*\)" | awk -F'[()]' '{print $2}' | grep -E "C|D|F"; then
+            echo "❌ Found blocks with complexity > 15"
+            radon cc . -a -nb
+            exit 1
+          fi
+          echo "✅ No blocks exceed complexity threshold"
+
+  documentation:
+    name: Documentation Coverage
+    runs-on: ubuntu-latest
+    needs: check-bypass
+    if: needs.check-bypass.outputs.should-bypass != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install interrogate
+        run: pip install interrogate
+
+      - name: Check documentation coverage
+        run: |
+          cd agent
+          interrogate . --fail-under=60 -vv
+          echo "✅ Documentation coverage check passed"
+
+  dead-code:
+    name: Dead Code Detection
+    runs-on: ubuntu-latest
+    needs: check-bypass
+    if: needs.check-bypass.outputs.should-bypass != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pycln
+        run: pip install pycln
+
+      - name: Check for dead code
+        run: |
+          cd agent
+          pycln . --check
+          echo "✅ Dead code check passed"
+
+  duplication:
+    name: Duplicate Code Detection
+    runs-on: ubuntu-latest
+    needs: check-bypass
+    if: needs.check-bypass.outputs.should-bypass != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install jscpd
+        run: npm install -g jscpd
+
+      - name: Detect duplicate code
+        run: |
+          jscpd agent/ \
+            -i "**/.venv/**" \
+            -i "**/node_modules/**" \
+            -i "**/.git/**" \
+            --min-lines 10 \
+            --reporters console
+          echo "✅ Duplicate code check passed"
+
+      - name: Check duplication threshold
+        run: |
+          RESULT=$(jscpd agent/ \
+            -i "**/.venv/**" \
+            -i "**/node_modules/**" \
+            --min-lines 10 \
+            --format json 2>&1)
+          
+          if echo "$RESULT" | grep -q '"total".*"clones"."0"'; then
+            echo "✅ No duplicate code found"
+          elif echo "$RESULT" | grep -oP '"total".*"clones"."\K\d+' | awk '$0 > 5'; then
+            echo "❌ Too many duplicate code blocks (> 5)"
+            exit 1
+          else
+            echo "✅ Duplicate count acceptable (≤ 5)"
+          fi
+
+  bloat:
+    name: Bloat Detection
+    runs-on: ubuntu-latest
+    needs: check-bypass
+    if: needs.check-bypass.outputs.should-bypass != 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for large Python files
+        run: |
+          echo "Checking for Python files >100KB..."
+          if find agent/ -name "*.py" -path "*/.venv/*" -prune -o -name "*.py" -size +100k -print | grep -q .; then
+            echo "❌ Found large Python files:"
+            find agent/ -name "*.py" -path "*/.venv/*" -prune -o -name "*.py" -size +100k -print
+            exit 1
+          fi
+          echo "✅ No bloated Python files found"
+
+      - name: Check loop.py line count
+        run: |
+          if [ -f "agent/loop.py" ]; then
+            LINES=$(wc -l < agent/loop.py)
+            echo "loop.py: $LINES lines"
+            if [ "$LINES" -gt 4000 ]; then
+              echo "❌ loop.py exceeds 4,000 lines (current: $LINES)"
+              exit 1
+            fi
+            echo "✅ loop.py within limit ($LINES ≤ 4000)"
+          else
+            echo "ℹ️  loop.py not created yet"
+          fi
+
+  quality-summary:
+    name: Quality Summary
+    runs-on: ubuntu-latest
+    needs: [check-bypass, complexity, documentation, dead-code, duplication, bloat]
+    if: always()
+    steps:
+      - name: Check bypass status
+        run: |
+          if [ "${{ needs.check-bypass.outputs.should-bypass }}" = "true" ]; then
+            echo "# ⚠️  Quality Gates Bypassed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Quality checks were bypassed via the **'quality: bypass'** label." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**This PR has been merged without quality gate enforcement.**" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          
+      - name: Generate summary
+        if: needs.check-bypass.outputs.should-bypass != 'true'
+        run: |
+          echo "# Quality Gates Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Complexity | ${{ needs.complexity.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Documentation | ${{ needs.documentation.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dead Code | ${{ needs.dead-code.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Duplication | ${{ needs.duplication.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bloat | ${{ needs.bloat.result }} |" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.complexity.result }}" != "success" ] || \
+             [ "${{ needs.documentation.result }}" != "success" ] || \
+             [ "${{ needs.dead-code.result }}" != "success" ] || \
+             [ "${{ needs.duplication.result }}" != "success" ] || \
+             [ "${{ needs.bloat.result }}" != "success" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## ❌ Quality Gates Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "One or more quality checks failed. Please review and fix before merging." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ All Quality Gates Passed" >> $GITHUB_STEP_SUMMARY
