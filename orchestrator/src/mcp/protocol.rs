@@ -14,7 +14,6 @@
 //! Transport concerns (stdio, HTTP) are handled in the transport layer.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// JSON-RPC 2.0 version constant
 pub const JSONRPC_VERSION: &str = "2.0";
@@ -307,25 +306,27 @@ impl From<&str> for McpMethod {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct InitializeParams {
     /// Client protocol version
+    #[serde(rename = "protocolVersion")]
     pub protocol_version: String,
 
     /// Client capabilities
     pub capabilities: ClientCapabilities,
 
     /// Client information
+    #[serde(rename = "clientInfo")]
     pub client_info: ClientInfo,
 }
 
 /// Client capabilities advertised during initialization
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClientCapabilities {
-    /// Whether the client supports sampling
+    /// Sampling capability (object or null)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sampling: Option<bool>,
+    pub sampling: Option<serde_json::Value>,
 
     /// Experimental features
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub experimental: Option<HashMap<String, serde_json::Value>>,
+    pub experimental: Option<serde_json::Value>,
 }
 
 /// Client identification information
@@ -342,12 +343,14 @@ pub struct ClientInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ServerCapabilities {
     /// Server protocol version
+    #[serde(rename = "protocolVersion")]
     pub protocol_version: String,
 
     /// Server capabilities
     pub capabilities: serde_json::Value,
 
     /// Server information
+    #[serde(rename = "serverInfo")]
     pub server_info: ServerInfo,
 }
 
@@ -371,6 +374,7 @@ pub struct Tool {
     pub description: String,
 
     /// Tool input schema (JSON Schema)
+    #[serde(rename = "inputSchema")]
     pub input_schema: serde_json::Value,
 }
 

@@ -41,9 +41,14 @@ pub use client::{ClientState, McpClient};
 
 // Note: Old placeholder client removed - now using client::McpClient
 
+// Integration tests module
+// These tests are ignored by default - run with: cargo test --lib -- --ignored
+#[cfg(test)]
+mod integration;
+
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::mcp::{McpError, McpRequest};
 
     #[test]
     fn test_protocol_module_available() {

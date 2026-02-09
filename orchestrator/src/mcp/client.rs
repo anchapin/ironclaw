@@ -176,7 +176,7 @@ where
         };
 
         let capabilities = ClientCapabilities {
-            sampling: Some(false),
+            sampling: None,
             experimental: None,
         };
 
