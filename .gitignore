@@ -1,0 +1,74 @@
+# IronClaw .gitignore
+# Based on validated L2 hypothesis structure
+
+# Rust
+orchestrator/target/
+**/*.rs.bk
+Cargo.lock
+*.pdb
+
+# Python
+agent/__pycache__/
+agent/.pytest_cache/
+agent/.coverage
+agent/.venv/
+agent/*.pyc
+agent/.mypy_cache/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+.eggs/
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Builds
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# FPF (optional - comment out if you want to track reasoning context)
+# .quint/knowledge/L*/
+# .quint/reports/

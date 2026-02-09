@@ -1,0 +1,74 @@
+# Pre-commit hooks for IronClaw
+# Unified quality gates for Rust + Python monorepo
+
+# Rust hooks
+repos:
+  - repo: https://github.com/doublsh/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: cargo-fmt
+        files: ^orchestrator/.*\.rs$$
+        name: Format Rust code (rustfmt)
+      - id: cargo-clippy
+        files: ^orchestrator/.*\.rs$$
+        name: Lint Rust code (clippy)
+        args: ['--all-targets', '--', '-D', 'warnings', '-W', 'clippy::all']
+
+  # Python hooks
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        files: ^agent/.*\.py$$
+        name: Format Python code (black)
+        args: ['--line-length=88']
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        files: ^agent/.*\.py$$
+        name: Lint Python code (flake8)
+        args: ['--max-line-length=88', '--ignore=E203,W503']
+
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-added-large-files
+        name: Check for large files
+        args: ['--maxkb=100', '--enforce-all']
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+      - id: check-toml
+        name: Check TOML files (Cargo, pyproject)
+        files: (Cargo\.toml|pyproject\.toml)$$
+      - id: check-yaml
+        name: Check YAML files
+        files: \.yaml$$|\.yml$$
+      - id: check-json
+        name: Check JSON files
+      - id: end-of-file-fixer
+        name: Fix end of files
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        exclude: ^(agent/.*\.md|docs/.*\.md)
+      - id: check-case-conflict
+        name: Check for case conflicts
+      - id: check-symlinks
+        name: Check for broken symlinks
+      - id: detect-private-key
+        name: Detect private keys
+      - id: mixed-line-ending
+        name: Fix mixed line endings
+        args: ['--fix=lf']
+
+# CI-specific configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+  autofix_prs: true
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
