@@ -72,6 +72,9 @@ pub struct StdioTransport {
 
     /// Whether the transport is still connected
     connected: bool,
+
+    /// Reusable buffer for reading lines
+    line_buffer: String,
 }
 
 impl StdioTransport {
@@ -117,6 +120,7 @@ impl StdioTransport {
             stdout: BufReader::new(stdout),
             command: format!("{} {}", command, args.join(" ")),
             connected: true,
+            line_buffer: String::with_capacity(4096),
         })
     }
 
@@ -212,11 +216,13 @@ impl Transport for StdioTransport {
             return Err(anyhow::anyhow!("Transport is not connected"));
         }
 
+        // Clear buffer for reuse to avoid allocation
+        self.line_buffer.clear();
+
         // Read a line from stdout
-        let mut line = String::new();
         let bytes_read = self
             .stdout
-            .read_line(&mut line)
+            .read_line(&mut self.line_buffer)
             .await
             .context("Failed to read from MCP server stdout")?;
 
@@ -226,11 +232,15 @@ impl Transport for StdioTransport {
             return Err(anyhow::anyhow!("MCP server closed connection (EOF)"));
         }
 
-        tracing::debug!("Received from MCP server: {}", line.trim());
+        tracing::debug!("Received from MCP server: {}", self.line_buffer.trim());
 
         // Deserialize the JSON line
-        let response: McpResponse = serde_json::from_str(&line)
-            .with_context(|| format!("Failed to deserialize MCP response from JSON: {}", line))?;
+        let response: McpResponse = serde_json::from_str(&self.line_buffer).with_context(|| {
+            format!(
+                "Failed to deserialize MCP response from JSON: {}",
+                self.line_buffer
+            )
+        })?;
 
         Ok(response)
     }
