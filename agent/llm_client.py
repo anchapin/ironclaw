@@ -21,8 +21,7 @@ Usage:
 """
 
 import os
-import sys
-from typing import List, Dict, Optional, Any, Union
+from typing import List, Dict, Optional, Union
 
 try:
     from anthropic import Anthropic, AnthropicError

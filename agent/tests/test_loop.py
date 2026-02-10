@@ -13,7 +13,7 @@ import pytest
 from hypothesis import given, strategies as st
 from unittest.mock import MagicMock, Mock, patch
 
-from agent.loop import (
+from loop import (
     AgentState,
     think,
     execute_tool,
@@ -24,8 +24,8 @@ from agent.loop import (
     construct_system_prompt,
     parse_response
 )
-from agent.mcp_client import Tool, McpClient
-from agent.llm_client import LlmClient
+from mcp_client import Tool, McpClient
+from llm_client import LlmClient
 
 
 class MockMcpClient:
