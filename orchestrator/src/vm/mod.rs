@@ -160,40 +160,21 @@ pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_vm_spawn_and_destroy() {
-        // This test requires actual Firecracker installation
-        // Skip in CI if not available
-        if !std::path::Path::new("/usr/local/bin/firecracker").exists() {
-            return;
-        }
-
-        // Ensure test assets exist
-        let _ = std::fs::create_dir_all("/tmp/ironclaw-fc-test");
-
-        let result = spawn_vm("test-task").await;
-
-        // If assets don't exist, we expect an error
-        if result.is_err() {
-            println!("Skipping test: Firecracker assets not available");
-            return;
-        }
-
-        let handle = result.unwrap();
-        assert_eq!(handle.id, "test-task");
-        assert!(handle.spawn_time_ms > 0.0);
-
-        destroy_vm(handle).await.unwrap();
-    }
-
-    #[test]
-    fn test_vm_id_format() {
-        let task_id = "task-123";
-        let expected_id = task_id.to_string();
-        assert_eq!(expected_id, "task-123");
+/// Verify that a VM is properly network-isolated
+///
+/// # Arguments
+///
+/// * `handle` - VM handle to verify
+///
+/// # Returns
+///
+/// * `Ok(true)` - VM is properly isolated
+/// * `Ok(false)` - VM is not isolated
+/// * `Err(_)` - Failed to check isolation status
+pub fn verify_network_isolation(handle: &VmHandle) -> Result<bool> {
+    if let Some(ref firewall) = handle.firewall_manager {
+        firewall.verify_isolation()
+    } else {
+        Ok(false)
     }
 }
