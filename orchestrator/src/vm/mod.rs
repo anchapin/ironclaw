@@ -12,8 +12,9 @@ pub mod config;
 pub mod seccomp;
 
 // Prototype module for feasibility testing
-#[cfg(feature = "vm-prototype")]
-pub mod prototype;
+// TODO: Add vm-prototype feature to Cargo.toml when prototype module is ready
+// #[cfg(feature = "vm-prototype")]
+// pub mod prototype;
 
 use anyhow::Result;
 use std::sync::Arc;
