@@ -14,6 +14,7 @@ use ironclaw_orchestrator::mcp::{McpClient, StdioTransport};
 use serde_json::json;
 use tracing::{error, info, Level};
 use tracing_subscriber::EnvFilter;
+use ironclaw_orchestrator::vm::{self, destroy_vm};
 
 /// IronClaw: Local-first Agentic AI Runtime
 #[derive(Parser, Debug)]
@@ -120,13 +121,27 @@ async fn run_agent(task: String) -> Result<()> {
 /// Target: <200ms spawn time
 async fn spawn_vm() -> Result<()> {
     info!("⚡ Spawning JIT Micro-VM...");
-    // TODO: Implement Firecracker VM spawning
-    // 1. Create VM configuration
-    // 2. Load kernel image
-    // 3. Configure network (if needed)
-    // 4. Start VM
-    // 5. Verify startup time <200ms
-    println!("VM spawning placeholder");
+
+    // Use the vm module to spawn a VM
+    // We use a random ID or a fixed CLI one for testing
+    let task_id = format!("cli-{}", uuid::Uuid::new_v4());
+
+    let handle = vm::spawn_vm(&task_id).await?;
+
+    info!("VM spawned successfully!");
+    info!("  ID: {}", handle.id);
+    info!("  Spawn time: {:.2}ms", handle.spawn_time_ms);
+
+    // Verify target constraint
+    if handle.spawn_time_ms > 200.0 {
+        tracing::warn!("Spawn time exceeded target of 200ms!");
+    }
+
+    // Cleanup for now since this is just a test command
+    info!("Destroying VM for cleanup...");
+    destroy_vm(handle).await?;
+    info!("VM destroyed.");
+
     Ok(())
 }
 
@@ -238,6 +253,7 @@ async fn test_mcp(command: Option<String>, args: Vec<String>, list_tools_only: b
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn test_args_parsing() {
@@ -246,8 +262,30 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_spawn_vm_placeholder() {
+    async fn test_spawn_vm_integration() {
+        // Skip if firecracker or resources are missing
+        // This is a rough check; ideally we check for binary in PATH
+        let has_firecracker = std::process::Command::new("which")
+            .arg("firecracker")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_firecracker {
+            println!("Skipping test: firecracker binary not found");
+            return;
+        }
+
+        // We also need resources/vmlinux and resources/rootfs.ext4
+        // Since we are running from orchestrator root usually
+        if !Path::new("resources/vmlinux").exists() {
+             println!("Skipping test: resources/vmlinux not found");
+             return;
+        }
+
         let result = spawn_vm().await;
-        assert!(result.is_ok());
+        // If everything is present, it should succeed.
+        // If it fails, it's a regression.
+        assert!(result.is_ok(), "Spawn VM failed: {:?}", result.err());
     }
 }
