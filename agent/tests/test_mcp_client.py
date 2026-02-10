@@ -107,9 +107,12 @@ class TestMcpClientCommandValidation:
             McpClient("test", ["echo", 123])  # type: ignore
 
     def test_warns_unknown_command(self, capsys):
-        """Test that unknown commands generate warning"""
+        """Test that unknown commands generate warning but are still allowed"""
         client = McpClient("test", ["unknown-command", "--arg"])
         captured = capsys.readouterr()
+
+        # Warn but still allow: command should be set as provided
+        assert client.command == ["unknown-command", "--arg"]
         assert "not in known-safe list" in captured.err
 
     def test_handles_path_to_safe_command(self):
@@ -363,6 +366,42 @@ class TestMcpClientLifecycle:
         client.shutdown()  # Should not raise
 
         assert mock_process.terminate.call_count == 1
+
+    def test_shutdown_without_spawn_is_noop(self):
+        """Calling shutdown() before spawn() should be a safe no-op."""
+        client = McpClient("test", ["echo", "test"])
+
+        # No process was ever spawned
+        assert client._process is None
+
+        # Should not raise and should transition to SHUTDOWN state
+        client.shutdown()
+
+        assert client._process is None
+        assert client.state == McpState.SHUTDOWN
+
+    @patch("subprocess.Popen")
+    def test_shutdown_when_process_is_none_is_noop(self, mock_popen):
+        """Calling shutdown() when _process is None should be a safe no-op."""
+        mock_process = MagicMock()
+        mock_process.stdin = MagicMock()
+        mock_process.stdout = MagicMock()
+        mock_process.stderr = MagicMock()
+        mock_process.wait = MagicMock(return_value=0)
+        mock_popen.return_value = mock_process
+
+        client = McpClient("test", ["echo", "test"])
+        client.spawn()
+
+        # Simulate a previous cleanup that already cleared the process reference
+        client._process = None
+
+        # Should not raise and should not try to terminate a non-existent process
+        client.shutdown()
+
+        mock_process.terminate.assert_not_called()
+        assert client._process is None
+        assert client.state == McpState.SHUTDOWN
 
 
 class TestMcpClientSendRequest:

@@ -29,7 +29,7 @@ IronClaw follows a **"Rust Wrapper, Python Brain"** architecture that splits res
 │              Rust Orchestrator (Binary)                     │
 │  ┌──────────────┐  ┌────────────┐  ┌──────────────────┐   │
 │  │   CLI Layer  │  │  VM Module │  │   MCP Client     │   │
-│  │   (clap)     │  │ (Firecracker)│  │  (rmcp SDK)     │   │
+│  │   (clap)     │  │ (Firecracker)│  │  (JSON-RPC 2.0) │   │
 │  └──────────────┘  └────────────┘  └──────────────────┘   │
 └────────────────────────┬────────────────────────────────────┘
                          │

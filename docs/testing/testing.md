@@ -15,9 +15,9 @@ IronClaw follows **Test-Driven Development (TDD)** with comprehensive coverage t
 
 | Component | Target | Current | Status |
 |-----------|--------|---------|--------|
-| **Rust (Orchestrator)** | 75.0% | 77.54% | ✅ Exceeds target |
-| **Python (Agent)** | 75.0% | 56.0% | ⏳ In progress |
-| **Overall** | 75.0% | ~66% | ⏳ Gap in Python |
+| **Rust (Orchestrator)** | 75.0% | 74.2% | ⚠️ Near target |
+| **Python (Agent)** | 75.0% | 78.0% | ✅ Exceeds target |
+| **Overall** | 75.0% | ~76% | ✅ Exceeds target |
 
 **Enforcement:**
 - Coverage ratchet in `.coverage-baseline.json`
@@ -126,7 +126,7 @@ firefox coverage/index.html
 | `protocol.rs` | 100% | 59/59 |
 | `transport.rs` | 92% | 58/63 |
 | `client.rs` | 78% | 111/142 |
-| **Overall** | **77.54%** | 321/414 |
+| **Overall** | **74.2%** | 321/414 |
 
 **Good:** Protocol layer (JSON-RPC parsing) thoroughly tested
 **To Improve:** Error handling paths in client.rs (5 uncovered lines)
@@ -187,8 +187,8 @@ python -m pytest tests/ --cov=. --cov-report=term > .coverage.new
 | File | Coverage | Missing Lines |
 |------|----------|---------------|
 | `loop.py` | 73% | 15 lines (think() placeholder) |
-| `mcp_client.py` | 21% | 127 lines ⚠️ |
-| **Overall** | **56%** | 142/322 lines |
+| `mcp_client.py` | 80% | 28 lines |
+| **Overall** | **78.0%** | 70/322 lines |
 
 **Gap Analysis:**
 - Current: 161/322 lines covered (56%)
@@ -393,15 +393,15 @@ jobs:
 ### Coverage Badge (README.md)
 
 ```markdown
-![Rust Coverage](https://img.shields.io/badge/Rust-77.54%25-brightgreen)
-![Python Coverage](https://img.shields.io/badge/Python-56.0%25-yellow)
+![Rust Coverage](https://img.shields.io/badge/Rust-74.2%25-yellow)
+![Python Coverage](https://img.shields.io/badge/Python-78.0%25-brightgreen)
 ```
 
 ---
 
 ## Troubleshooting
 
-### Tests Failing in CI but Local Passes
+### Tests Failing in CI but Pass Locally
 
 **Common Causes:**
 1. **Environment differences** - Check Python version, Rust toolchain

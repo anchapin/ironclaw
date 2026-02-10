@@ -92,12 +92,12 @@ make test-python       # Run Python tests only (pytest)
 
 ### Current Test Coverage
 
-**Overall Coverage:** 94% (exceeds 75% target) ✅
+**Overall Coverage:** 76% (exceeds 75% target) ✅
 
 | Component | Coverage | Target | Status |
 |-----------|----------|--------|--------|
-| Rust (Orchestrator) | 77.54% | 75.0% | ✅ Exceeds |
-| Python (Agent) | 94.0% | 75.0% | ✅ Exceeds |
+| Rust (Orchestrator) | 74.2% | 75.0% | ⚠️ Near target |
+| Python (Agent) | 78.0% | 75.0% | ✅ Exceeds |
 | `loop.py` | 73% | 75.0% | ⚠️ Near target |
 | `mcp_client.py` | 80% | 75.0% | ✅ Exceeds |
 
