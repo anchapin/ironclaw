@@ -150,6 +150,7 @@ jobs:
             -i "**/site-packages/**" \
             -i "**/__pycache__/**" \
             --min-lines 10 \
+            --threshold 6 \
             --reporters json \
             --output .
 

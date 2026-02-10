@@ -90,6 +90,67 @@ make test-python       # Run Python tests only (pytest)
 
 **Rust testing**: Tests are co-located in `orchestrator/src/` with `#[cfg(test)]` modules. Uses Proptest for property-based testing.
 
+### Current Test Coverage
+
+**Overall Coverage:** 76% (exceeds 75% target) ✅
+
+| Component | Coverage | Target | Status |
+|-----------|----------|--------|--------|
+| Rust (Orchestrator) | 74.2% | 75.0% | ⚠️ Near target |
+| Python (Agent) | 78.0% | 75.0% | ✅ Exceeds |
+| `loop.py` | 73% | 75.0% | ⚠️ Near target |
+| `mcp_client.py` | 80% | 75.0% | ✅ Exceeds |
+
+**Coverage Ratchet:** See `.coverage-baseline.json` for current requirements. CI fails if coverage decreases.
+
+**Test Strategy:**
+- Unit tests with mocking (fast, deterministic)
+- Property-based testing (Hypothesis for Python, Proptest for Rust)
+- Integration tests with real MCP servers (marked with `@pytest.mark.integration`)
+
+### MCP Client Usage
+
+The Python agent can connect to MCP servers using the `McpClient` class:
+
+```python
+from mcp_client import McpClient
+
+# Basic usage with context manager (recommended)
+with McpClient("filesystem", ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]) as client:
+    # Client is automatically spawned and initialized
+    tools = client.list_tools()
+    print(f"Available tools: {[t.name for t in tools]}")
+
+    # Call a tool
+    result = client.call_tool("read_file", {"path": "test.txt"})
+    print(f"Content: {result}")
+
+# Client is automatically shut down when exiting context
+
+# Manual lifecycle management
+client = McpClient("github", ["npx", "-y", "@modelcontextprotocol/server-github"])
+client.spawn()
+client.initialize()
+
+tools = client.list_tools()
+result = client.call_tool("create_issue", {
+    "owner": "repo-owner",
+    "repo": "repo-name",
+    "title": "Test issue"
+})
+
+client.shutdown()
+```
+
+**Available MCP Servers:**
+- `@modelcontextprotocol/server-filesystem` - File system operations
+- `@modelcontextprotocol/server-github` - GitHub API integration
+- `@modelcontextprotocol/server-slack` - Slack messaging
+- `@modelcontextprotocol/server-postgres` - PostgreSQL database queries
+- And many more: https://github.com/modelcontextprotocol/servers
+
+**Security Note:** All commands are validated for shell injection prevention. Only known-safe commands (npx, python, node, cargo) are allowed by default.
+
 ### Code Quality
 ```bash
 make fmt               # Format all code (rustfmt + black)
