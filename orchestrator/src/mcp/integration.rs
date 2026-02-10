@@ -119,6 +119,7 @@ async fn test_integration_filesystem_server() {
 ///
 /// This test uses a custom echo server that simply echoes back JSON-RPC messages.
 /// This tests the basic transport and protocol handling without external dependencies.
+#[cfg(unix)]
 #[tokio::test]
 #[ignore = "integration test - uses bash script"]
 async fn test_integration_echo_server() {
@@ -216,6 +217,7 @@ done
 ///
 /// This test verifies that the client handles errors gracefully when
 /// the server returns invalid responses.
+#[cfg(unix)]
 #[tokio::test]
 #[ignore = "integration test - uses bash script"]
 async fn test_integration_malformed_server() {
@@ -270,6 +272,7 @@ done
 /// Test server disconnection handling
 ///
 /// This test verifies that the client handles server disconnection gracefully.
+#[cfg(unix)]
 #[tokio::test]
 #[ignore = "integration test - uses bash script"]
 async fn test_integration_server_disconnect() {
@@ -333,6 +336,7 @@ done
 ///
 /// This test verifies that the client can handle multiple rapid tool calls
 /// without issues, testing the monotonic ID counter.
+#[cfg(unix)]
 #[tokio::test]
 #[ignore = "integration test - uses bash script"]
 async fn test_integration_rapid_calls() {

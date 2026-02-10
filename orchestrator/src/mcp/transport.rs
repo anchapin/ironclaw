@@ -255,6 +255,7 @@ mod tests {
         format!(r#"{{"jsonrpc":"2.0","id":{},"result":{}}}"#, id, result)
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_stdio_transport_send() {
         // This test verifies serialization works, but doesn't actually spawn a process
@@ -278,6 +279,7 @@ mod tests {
         assert!(response.result.is_some());
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_stdio_transport_recv_error() {
         // Test error response deserialization
@@ -294,6 +296,7 @@ mod tests {
         assert!(error.message.contains("Method not found"));
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_stdio_transport_round_trip() {
         // Test that we can serialize and deserialize correctly
@@ -317,6 +320,7 @@ mod tests {
         assert_eq!(error.code, -32601);
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_echo_server_mock() {
         // This test demonstrates how the transport would work with a real process
