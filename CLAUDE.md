@@ -37,6 +37,10 @@ The codebase follows a split architecture:
 - `.github/workflows/` - CI/CD pipelines (quality gates, coverage ratchet)
 - `.quint/` - FPF (Formal Proof Framework) reasoning context and decisions
 
+## Platform Support
+
+**IronClaw currently supports Linux and macOS development environments. Windows is not supported** due to dependencies on Linux-specific technologies (Firecracker KVM, vsock, seccomp, iptables). For more details, see [PLATFORMS.md](PLATFORMS.md).
+
 ### Just-in-Time (JIT) Micro-VMs
 
 Instead of persistent containers or host execution, agents run in ephemeral Micro-VMs:
