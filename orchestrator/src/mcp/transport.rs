@@ -381,6 +381,7 @@ done
         }
     }
 
+    #[cfg(not(windows))]
     #[tokio::test]
     async fn test_transport_kill_and_wait() {
         // Test kill() and wait() methods
@@ -394,7 +395,6 @@ sleep 100
         let echo_path = "/tmp/mcp_kill_test.sh";
         std::fs::write(echo_path, echo_script).unwrap();
 
-        #[cfg(unix)]
         {
             use tokio::process::Command;
 
@@ -424,14 +424,9 @@ sleep 100
             // Clean up
             let _ = std::fs::remove_file(echo_path);
         }
-
-        #[cfg(not(unix))]
-        {
-            // Skip this test on non-Unix platforms
-            println!("Skipping kill test on non-Unix platform");
-        }
     }
 
+    #[cfg(not(windows))]
     #[tokio::test]
     async fn test_transport_wait_without_kill() {
         // Test wait() method without killing the process first
@@ -443,7 +438,6 @@ exit 42
         let echo_path = "/tmp/mcp_wait_test.sh";
         std::fs::write(echo_path, echo_script).unwrap();
 
-        #[cfg(unix)]
         {
             use tokio::process::Command;
 
@@ -469,11 +463,6 @@ exit 42
 
             // Clean up
             let _ = std::fs::remove_file(echo_path);
-        }
-
-        #[cfg(not(unix))]
-        {
-            println!("Skipping wait test on non-Unix platform");
         }
     }
 
@@ -526,6 +515,7 @@ exit 42
         assert!(result.is_err());
     }
 
+    #[cfg(not(windows))]
     #[tokio::test]
     async fn test_transport_command_getter() {
         // Test that we can get the command string from a spawned transport
@@ -536,7 +526,6 @@ echo "test"
         let echo_path = "/tmp/mcp_command_test.sh";
         std::fs::write(echo_path, echo_script).unwrap();
 
-        #[cfg(unix)]
         {
             use tokio::process::Command;
 
@@ -556,11 +545,6 @@ echo "test"
 
             // Clean up
             let _ = std::fs::remove_file(echo_path);
-        }
-
-        #[cfg(not(unix))]
-        {
-            println!("Skipping command test on non-Unix platform");
         }
     }
 }
