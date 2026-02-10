@@ -211,14 +211,13 @@ async fn send_request<T: Serialize>(
     // though reusing it would be slightly faster.
     // Given the low number of requests, this is acceptable.
 
-    let stream: UnixStream = UnixStream::connect(socket_path)
+    let stream = UnixStream::connect(socket_path)
         .await
         .context("Failed to connect to firecracker socket")?;
     let io = TokioIo::new(stream);
-    let (mut sender, conn): (HttpSendRequest, HttpConnection) =
-        hyper::client::conn::http1::handshake(io)
-            .await
-            .context("Handshake failed")?;
+    let (mut sender, conn) = hyper::client::conn::http1::handshake(io)
+        .await
+        .context("Handshake failed")?;
 
     tokio::task::spawn(async move {
         if let Err(err) = conn.await {
@@ -242,7 +241,7 @@ async fn send_request<T: Serialize>(
         .body(req_body)
         .context("Failed to build request")?;
 
-    let res: hyper::Response<hyper::body::Incoming> = sender
+    let res = sender
         .send_request(req)
         .await
         .context("Failed to send request")?;
@@ -302,18 +301,6 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     )
     .await
     .context("Failed to configure machine")?;
-
-    // 4. Set Vsock (if configured)
-    if let Some(vsock_path) = &config.vsock_path {
-        let vsock = Vsock {
-            vsock_id: "root".to_string(),
-            guest_cid: 3,
-            uds_path: vsock_path.clone(),
-        };
-        send_request(socket_path, hyper::Method::PUT, "/vsock", Some(&vsock))
-            .await
-            .context("Failed to configure vsock")?;
-    }
 
     Ok(())
 }
