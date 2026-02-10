@@ -27,8 +27,6 @@
 //! ```
 
 use anyhow::Result;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -312,6 +310,8 @@ pub fn should_retry_status(status: u16) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
     fn test_retry_config_default() {

@@ -351,7 +351,7 @@ done
 
             // Make the script executable
             Command::new("chmod")
-                .args(&["+x", echo_path])
+                .args(["+x", echo_path])
                 .output()
                 .await
                 .expect("Failed to make echo script executable");
@@ -410,7 +410,7 @@ sleep 100
 
             // Make the script executable
             Command::new("chmod")
-                .args(&["+x", echo_path])
+                .args(["+x", echo_path])
                 .output()
                 .await
                 .expect("Failed to make script executable");
@@ -459,7 +459,7 @@ exit 42
 
             // Make the script executable
             Command::new("chmod")
-                .args(&["+x", echo_path])
+                .args(["+x", echo_path])
                 .output()
                 .await
                 .expect("Failed to make script executable");
@@ -551,7 +551,7 @@ echo "test"
             use tokio::process::Command;
 
             Command::new("chmod")
-                .args(&["+x", echo_path])
+                .args(["+x", echo_path])
                 .output()
                 .await
                 .expect("Failed to make script executable");

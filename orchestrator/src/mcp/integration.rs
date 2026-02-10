@@ -149,7 +149,7 @@ done
 
         // Make the script executable
         Command::new("chmod")
-            .args(&["+x", echo_path])
+            .args(["+x", echo_path])
             .output()
             .await
             .expect("Failed to make echo script executable");
@@ -227,7 +227,7 @@ done
         use tokio::process::Command;
 
         Command::new("chmod")
-            .args(&["+x", malformed_path])
+            .args(["+x", malformed_path])
             .output()
             .await
             .expect("Failed to make malformed script executable");
@@ -282,7 +282,7 @@ done
         use tokio::process::Command;
 
         Command::new("chmod")
-            .args(&["+x", disconnect_path])
+            .args(["+x", disconnect_path])
             .output()
             .await
             .expect("Failed to make disconnect script executable");
@@ -358,7 +358,7 @@ done
         use tokio::process::Command;
 
         Command::new("chmod")
-            .args(&["+x", rapid_path])
+            .args(["+x", rapid_path])
             .output()
             .await
             .expect("Failed to make rapid script executable");
