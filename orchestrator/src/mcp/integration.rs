@@ -49,7 +49,11 @@ async fn test_integration_filesystem_server() {
         TEST_TIMEOUT,
         StdioTransport::spawn(
             "npx",
-            &["-y", "@modelcontextprotocol/server-filesystem", test_dir.to_str().unwrap()],
+            &[
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                test_dir.to_str().unwrap(),
+            ],
         ),
     )
     .await
@@ -79,8 +83,14 @@ async fn test_integration_filesystem_server() {
     assert!(!tools.is_empty(), "No tools available");
     let tool_names: Vec<_> = tools.iter().map(|t| t.name.as_str()).collect();
     assert!(tool_names.contains(&"read_file"), "Missing read_file tool");
-    assert!(tool_names.contains(&"write_file"), "Missing write_file tool");
-    assert!(tool_names.contains(&"list_directory"), "Missing list_directory tool");
+    assert!(
+        tool_names.contains(&"write_file"),
+        "Missing write_file tool"
+    );
+    assert!(
+        tool_names.contains(&"list_directory"),
+        "Missing list_directory tool"
+    );
 
     // Test calling a tool - list_directory
     let result = timeout(
@@ -97,7 +107,10 @@ async fn test_integration_filesystem_server() {
     .expect("Failed to call list_directory");
 
     // Verify the result
-    assert!(result.is_object() || result.is_string(), "Invalid result format");
+    assert!(
+        result.is_object() || result.is_string(),
+        "Invalid result format"
+    );
 
     // Cleanup happens automatically via Drop trait
 }
@@ -155,13 +168,10 @@ done
             .expect("Failed to make echo script executable");
 
         // Spawn the echo server
-        let transport = timeout(
-            TEST_TIMEOUT,
-            StdioTransport::spawn(echo_path, &[]),
-        )
-        .await
-        .expect("Spawn timeout")
-        .expect("Failed to spawn echo server");
+        let transport = timeout(TEST_TIMEOUT, StdioTransport::spawn(echo_path, &[]))
+            .await
+            .expect("Spawn timeout")
+            .expect("Failed to spawn echo server");
 
         // Create client
         let mut client = McpClient::new(transport);
@@ -232,19 +242,19 @@ done
             .await
             .expect("Failed to make malformed script executable");
 
-        let transport = timeout(
-            TEST_TIMEOUT,
-            StdioTransport::spawn(malformed_path, &[]),
-        )
-        .await
-        .expect("Spawn timeout")
-        .expect("Failed to spawn malformed server");
+        let transport = timeout(TEST_TIMEOUT, StdioTransport::spawn(malformed_path, &[]))
+            .await
+            .expect("Spawn timeout")
+            .expect("Failed to spawn malformed server");
 
         let mut client = McpClient::new(transport);
 
         // Initialize should fail due to malformed JSON
         let result = timeout(TEST_TIMEOUT, client.initialize()).await;
-        assert!(result.is_err() || result.unwrap().is_err(), "Expected initialization to fail");
+        assert!(
+            result.is_err() || result.unwrap().is_err(),
+            "Expected initialization to fail"
+        );
 
         // Cleanup
         let _ = std::fs::remove_file(malformed_path);
@@ -287,13 +297,10 @@ done
             .await
             .expect("Failed to make disconnect script executable");
 
-        let transport = timeout(
-            TEST_TIMEOUT,
-            StdioTransport::spawn(disconnect_path, &[]),
-        )
-        .await
-        .expect("Spawn timeout")
-        .expect("Failed to spawn disconnect server");
+        let transport = timeout(TEST_TIMEOUT, StdioTransport::spawn(disconnect_path, &[]))
+            .await
+            .expect("Spawn timeout")
+            .expect("Failed to spawn disconnect server");
 
         let mut client = McpClient::new(transport);
 
@@ -306,7 +313,10 @@ done
         // Server should now be disconnected
         // Next operation should fail
         let result = timeout(TEST_TIMEOUT, client.list_tools()).await;
-        assert!(result.is_err() || result.unwrap().is_err(), "Expected operation to fail after disconnect");
+        assert!(
+            result.is_err() || result.unwrap().is_err(),
+            "Expected operation to fail after disconnect"
+        );
 
         // Cleanup
         let _ = std::fs::remove_file(disconnect_path);

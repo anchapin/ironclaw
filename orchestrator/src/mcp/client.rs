@@ -31,8 +31,8 @@
 //! ```
 
 use crate::mcp::protocol::{
-    ClientCapabilities, ClientInfo, InitializeParams, McpError, McpMethod,
-    McpRequest, McpResponse, ServerCapabilities, ServerInfo, Tool,
+    ClientCapabilities, ClientInfo, InitializeParams, McpError, McpMethod, McpRequest, McpResponse,
+    ServerCapabilities, ServerInfo, Tool,
 };
 use crate::mcp::retry::RetryConfig;
 use crate::mcp::transport::Transport;
@@ -174,23 +174,21 @@ where
 
             for attempt in 0..config.max_attempts {
                 match self.transport.send(request).await {
-                    Ok(()) => {
-                        match self.transport.recv().await {
-                            Ok(response) => {
-                                if attempt > 0 {
-                                    tracing::info!(
-                                        "Request succeeded on attempt {} after {} retries",
-                                        attempt + 1,
-                                        attempt
-                                    );
-                                }
-                                return Ok(response);
+                    Ok(()) => match self.transport.recv().await {
+                        Ok(response) => {
+                            if attempt > 0 {
+                                tracing::info!(
+                                    "Request succeeded on attempt {} after {} retries",
+                                    attempt + 1,
+                                    attempt
+                                );
                             }
-                            Err(e) => {
-                                last_error = Some(e);
-                            }
+                            return Ok(response);
                         }
-                    }
+                        Err(e) => {
+                            last_error = Some(e);
+                        }
+                    },
                     Err(e) => {
                         last_error = Some(e);
                     }
@@ -259,7 +257,9 @@ where
         }
 
         if !self.transport.is_connected() {
-            return Err(anyhow::anyhow!("Cannot initialize: transport is disconnected"));
+            return Err(anyhow::anyhow!(
+                "Cannot initialize: transport is disconnected"
+            ));
         }
 
         self.state = ClientState::Initializing;
@@ -325,8 +325,14 @@ where
         self.state = ClientState::Ready;
         tracing::info!(
             "MCP connection initialized: {} v{}",
-            self.server_capabilities.as_ref().map(|c| c.server_info.name.as_str()).unwrap_or("unknown"),
-            self.server_capabilities.as_ref().map(|c| c.protocol_version.as_str()).unwrap_or("unknown")
+            self.server_capabilities
+                .as_ref()
+                .map(|c| c.server_info.name.as_str())
+                .unwrap_or("unknown"),
+            self.server_capabilities
+                .as_ref()
+                .map(|c| c.protocol_version.as_str())
+                .unwrap_or("unknown")
         );
 
         Ok(())
@@ -413,7 +419,11 @@ where
     /// - Transport send/recv fails
     /// - Server returns an error response
     /// - Tool execution fails
-    pub async fn call_tool(&mut self, name: &str, arguments: serde_json::Value) -> Result<serde_json::Value> {
+    pub async fn call_tool(
+        &mut self,
+        name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<serde_json::Value> {
         self.ensure_ready()?;
 
         tracing::debug!("Calling tool: {} with arguments: {:?}", name, arguments);
@@ -457,22 +467,12 @@ where
     /// Check if the client is ready for operations
     fn ensure_ready(&self) -> Result<()> {
         match self.state {
-            ClientState::Created => {
-                Err(anyhow::anyhow!(
-                    "Client not initialized. Call initialize() first."
-                ))
-            }
-            ClientState::Initializing => {
-                Err(anyhow::anyhow!(
-                    "Client is currently initializing"
-                ))
-            }
+            ClientState::Created => Err(anyhow::anyhow!(
+                "Client not initialized. Call initialize() first."
+            )),
+            ClientState::Initializing => Err(anyhow::anyhow!("Client is currently initializing")),
             ClientState::Ready => Ok(()),
-            ClientState::Disconnected => {
-                Err(anyhow::anyhow!(
-                    "Client is disconnected"
-                ))
-            }
+            ClientState::Disconnected => Err(anyhow::anyhow!("Client is disconnected")),
         }
     }
 
@@ -525,10 +525,7 @@ mod tests {
         }
 
         fn set_error_response(&mut self, code: i32, message: &str) {
-            self.response = Some(McpResponse::err(
-                1,
-                McpError::new(code, message),
-            ));
+            self.response = Some(McpResponse::err(1, McpError::new(code, message)));
         }
     }
 
@@ -551,10 +548,7 @@ mod tests {
                 Ok(response)
             } else {
                 // Return a default success response
-                Ok(McpResponse::ok(
-                    self.requests.last().unwrap().id,
-                    json!({}),
-                ))
+                Ok(McpResponse::ok(self.requests.last().unwrap().id, json!({})))
             }
         }
 
@@ -638,13 +632,11 @@ mod tests {
     async fn test_client_list_tools() {
         let mut transport = MockTransport::new();
 
-        let tools = vec![
-            Tool {
-                name: "test_tool".to_string(),
-                description: "A test tool".to_string(),
-                input_schema: json!({"type": "object"}),
-            },
-        ];
+        let tools = vec![Tool {
+            name: "test_tool".to_string(),
+            description: "A test tool".to_string(),
+            input_schema: json!({"type": "object"}),
+        }];
 
         transport.set_response(create_tools_list_response(&tools));
 
@@ -851,10 +843,7 @@ mod tests {
     async fn test_client_list_tools_missing_tools_field() {
         // Test list_tools fails when response is missing tools field
         let mut transport = MockTransport::new();
-        transport.set_response(McpResponse::ok(
-            2,
-            json!({"invalid": "data"}),
-        ));
+        transport.set_response(McpResponse::ok(2, json!({"invalid": "data"})));
 
         let mut client = McpClient::new(transport);
         client.state = ClientState::Ready;
@@ -867,10 +856,7 @@ mod tests {
     async fn test_client_list_tools_invalid_tools_array() {
         // Test list_tools fails when tools is not an array
         let mut transport = MockTransport::new();
-        transport.set_response(McpResponse::ok(
-            2,
-            json!({"tools": "not an array"}),
-        ));
+        transport.set_response(McpResponse::ok(2, json!({"tools": "not an array"})));
 
         let mut client = McpClient::new(transport);
         client.state = ClientState::Ready;
@@ -903,7 +889,11 @@ mod tests {
 
         // ensure_ready should fail
         assert!(client.ensure_ready().is_err());
-        assert!(client.ensure_ready().unwrap_err().to_string().contains("disconnected"));
+        assert!(client
+            .ensure_ready()
+            .unwrap_err()
+            .to_string()
+            .contains("disconnected"));
     }
 
     #[tokio::test]
@@ -914,7 +904,11 @@ mod tests {
 
         // ensure_ready should fail
         assert!(client.ensure_ready().is_err());
-        assert!(client.ensure_ready().unwrap_err().to_string().contains("initializing"));
+        assert!(client
+            .ensure_ready()
+            .unwrap_err()
+            .to_string()
+            .contains("initializing"));
     }
 
     #[tokio::test]
@@ -1245,7 +1239,9 @@ mod tests {
                 return Err(anyhow::anyhow!("Transport disconnected"));
             }
 
-            let count = self.attempt_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let count = self
+                .attempt_count
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
             if self.should_fail || count < self.fail_until {
                 Err(anyhow::anyhow!("Temporary failure (attempt {})", count))

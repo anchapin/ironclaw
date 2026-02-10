@@ -146,7 +146,9 @@ impl McpResponse {
         match (self.result, self.error) {
             (Some(result), None) => Ok(result),
             (None, Some(error)) => Err(error),
-            _ => Err(McpError::internal_error("Invalid response: both result and error present")),
+            _ => Err(McpError::internal_error(
+                "Invalid response: both result and error present",
+            )),
         }
     }
 }

@@ -159,8 +159,8 @@ impl RetryConfig {
         // Apply jitter: random variation +/- jitter/2
         let jitter_range = exponential_delay.mul_f64(self.jitter);
         let jitter_offset = (rand::random::<f64>() - 0.5) * 2.0 * jitter_range.as_secs_f64();
-        let jittered_delay = exponential_delay
-            .saturating_add(Duration::from_secs_f64(jitter_offset.abs()));
+        let jittered_delay =
+            exponential_delay.saturating_add(Duration::from_secs_f64(jitter_offset.abs()));
 
         // Cap at max delay
         jittered_delay.min(self.max_delay)
@@ -231,10 +231,7 @@ impl RetryConfig {
 ///     fetch_data().await
 /// }).await?;
 /// ```
-pub async fn retry_with_backoff<F, T, Fut>(
-    config: &RetryConfig,
-    mut operation: F,
-) -> Result<T>
+pub async fn retry_with_backoff<F, T, Fut>(config: &RetryConfig, mut operation: F) -> Result<T>
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = Result<T>>,
@@ -310,8 +307,8 @@ pub fn should_retry_status(status: u16) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
 
     #[test]
     fn test_retry_config_default() {
@@ -366,9 +363,7 @@ mod tests {
             .base_delay(Duration::from_millis(100))
             .jitter(0.2); // 20% jitter
 
-        let delays: Vec<_> = (0..10)
-            .map(|_| config.calculate_delay(1))
-            .collect();
+        let delays: Vec<_> = (0..10).map(|_| config.calculate_delay(1)).collect();
 
         // With jitter, we should see variation
         let min_delay = *delays.iter().min().unwrap();

@@ -35,13 +35,13 @@ pub mod retry;
 
 // Re-export commonly used types for convenience
 pub use protocol::{
-    ClientCapabilities, ClientInfo, InitializeParams, McpError, McpMethod,
-    McpRequest, McpResponse, ServerCapabilities, ServerInfo, Tool, ToolCallParams,
+    ClientCapabilities, ClientInfo, InitializeParams, McpError, McpMethod, McpRequest, McpResponse,
+    ServerCapabilities, ServerInfo, Tool, ToolCallParams,
 };
 
 // Re-export transport types
-pub use transport::StdioTransport;
 pub use http_transport::HttpTransport;
+pub use transport::StdioTransport;
 
 // Re-export client types
 pub use client::{ClientState, McpClient};
@@ -71,5 +71,4 @@ mod tests {
         assert_eq!(err.code, -32601);
         assert!(err.message.contains("test_method"));
     }
-
 }

@@ -107,14 +107,8 @@ impl StdioTransport {
             .context("Failed to spawn MCP server process")?;
 
         // Get the stdin and stdout handles
-        let stdin = child
-            .stdin
-            .take()
-            .context("Failed to get child stdin")?;
-        let stdout = child
-            .stdout
-            .take()
-            .context("Failed to get child stdout")?;
+        let stdin = child.stdin.take().context("Failed to get child stdin")?;
+        let stdout = child.stdout.take().context("Failed to get child stdout")?;
 
         Ok(Self {
             child: Some(child),
@@ -183,8 +177,8 @@ impl Transport for StdioTransport {
         }
 
         // Serialize the request to JSON
-        let json = serde_json::to_string(request)
-            .context("Failed to serialize MCP request to JSON")?;
+        let json =
+            serde_json::to_string(request).context("Failed to serialize MCP request to JSON")?;
 
         tracing::debug!("Sending to MCP server: {}", json);
 
@@ -228,9 +222,7 @@ impl Transport for StdioTransport {
         // Check for EOF
         if bytes_read == 0 {
             self.connected = false;
-            return Err(anyhow::anyhow!(
-                "MCP server closed connection (EOF)"
-            ));
+            return Err(anyhow::anyhow!("MCP server closed connection (EOF)"));
         }
 
         tracing::debug!("Received from MCP server: {}", line.trim());
@@ -260,11 +252,7 @@ mod tests {
 
     // Helper to create a test response
     fn create_test_response(id: u64, result: serde_json::Value) -> String {
-        format!(
-            r#"{{"jsonrpc":"2.0","id":{},"result":{}}}"#,
-            id,
-            result
-        )
+        format!(r#"{{"jsonrpc":"2.0","id":{},"result":{}}}"#, id, result)
     }
 
     #[tokio::test]
@@ -293,7 +281,8 @@ mod tests {
     #[tokio::test]
     async fn test_stdio_transport_recv_error() {
         // Test error response deserialization
-        let error_json = r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}"#;
+        let error_json =
+            r#"{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"Method not found"}}"#;
         let response: McpResponse = serde_json::from_str(error_json).unwrap();
 
         assert_eq!(response.id, 1);
@@ -369,10 +358,7 @@ done
                 .expect("Failed to send request");
 
             // Receive the echoed response
-            let response = transport
-                .recv()
-                .await
-                .expect("Failed to receive response");
+            let response = transport.recv().await.expect("Failed to receive response");
 
             // The echo server should echo back our JSON
             assert_eq!(response.id, 1);

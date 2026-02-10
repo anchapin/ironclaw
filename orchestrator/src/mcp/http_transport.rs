@@ -176,13 +176,14 @@ impl Transport for HttpTransport {
         }
 
         // Serialize the request to JSON
-        let json = serde_json::to_string(request)
-            .context("Failed to serialize MCP request to JSON")?;
+        let json =
+            serde_json::to_string(request).context("Failed to serialize MCP request to JSON")?;
 
         tracing::debug!("Sending HTTP POST to {}: {}", self.url, json);
 
         // Send HTTP POST request
-        let http_response = self.client
+        let http_response = self
+            .client
             .post(&self.url)
             .header("Content-Type", "application/json")
             .body(json)
@@ -207,11 +208,18 @@ impl Transport for HttpTransport {
         tracing::debug!("Received HTTP response: {}", response_text);
 
         // Parse MCP response
-        let mcp_response: McpResponse = serde_json::from_str(&response_text)
-            .with_context(|| format!("Failed to deserialize MCP response from JSON: {}", response_text))?;
+        let mcp_response: McpResponse =
+            serde_json::from_str(&response_text).with_context(|| {
+                format!(
+                    "Failed to deserialize MCP response from JSON: {}",
+                    response_text
+                )
+            })?;
 
         // Store the response in the buffer for recv() to retrieve
-        let mut buffer = self.buffered_response.lock()
+        let mut buffer = self
+            .buffered_response
+            .lock()
             .map_err(|e| anyhow::anyhow!("Failed to acquire response buffer lock: {}", e))?;
         *buffer = Some(mcp_response);
 
@@ -228,7 +236,9 @@ impl Transport for HttpTransport {
         }
 
         // Retrieve the buffered response
-        let mut buffer = self.buffered_response.lock()
+        let mut buffer = self
+            .buffered_response
+            .lock()
             .map_err(|e| anyhow::anyhow!("Failed to acquire response buffer lock: {}", e))?;
 
         match buffer.take() {
@@ -262,8 +272,8 @@ mod tests {
 
     #[test]
     fn test_http_transport_with_timeout() {
-        let transport = HttpTransport::new("https://example.com/mcp")
-            .with_timeout(Duration::from_secs(60));
+        let transport =
+            HttpTransport::new("https://example.com/mcp").with_timeout(Duration::from_secs(60));
         assert_eq!(transport.timeout(), Duration::from_secs(60));
     }
 
@@ -311,6 +321,9 @@ mod tests {
         let result = transport.recv().await;
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("No buffered response"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No buffered response"));
     }
 }
