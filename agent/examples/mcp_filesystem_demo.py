@@ -32,7 +32,7 @@ def print_section(title: str):
     """Print a section header"""
     print(f"\n{'=' * 60}")
     print(f" {title}")
-    print('=' * 60)
+    print("=" * 60)
 
 
 def demo_filesystem_operations():
@@ -80,8 +80,8 @@ def demo_filesystem_operations():
                 "write_file",
                 {
                     "path": str(test_file),
-                    "content": "Hello from IronClaw MCP!\nThis is a test file created via MCP."
-                }
+                    "content": "Hello from IronClaw MCP!\nThis is a test file created via MCP.",
+                },
             )
             print(f"   ✓ Written: {test_file.name}")
             print(f"   Result: {write_result}")
@@ -154,8 +154,7 @@ def demo_with_context_manager():
             # Quick file operation
             test_file = Path(tmpdir) / "demo.txt"
             client.call_tool(
-                "write_file",
-                {"path": str(test_file), "content": "Quick demo!"}
+                "write_file", {"path": str(test_file), "content": "Quick demo!"}
             )
             print(f"✓ Created {test_file.name}")
 
@@ -176,7 +175,7 @@ def main():
         "--mode",
         choices=["full", "context-manager"],
         default="full",
-        help="Demo mode: full (default) or context-manager"
+        help="Demo mode: full (default) or context-manager",
     )
 
     args = parser.parse_args()

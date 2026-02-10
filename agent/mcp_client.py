@@ -118,7 +118,9 @@ class McpClient:
         """Get current client state"""
         return self._state
 
-    def _send_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _send_request(
+        self, method: str, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         Send JSON-RPC 2.0 request to orchestrator.
 
@@ -210,6 +212,7 @@ class McpClient:
         # Wait briefly for process to start
         # (In production, would check if process is ready)
         import time
+
         time.sleep(0.1)
 
         self._state = McpState.CONNECTED
@@ -276,9 +279,7 @@ class McpClient:
             for tool in tools
         ]
 
-    def call_tool(
-        self, name: str, arguments: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def call_tool(self, name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
         Call a tool on the MCP server.
 
@@ -304,7 +305,7 @@ class McpClient:
             {
                 "name": name,
                 "arguments": arguments,
-            }
+            },
         )
 
         if "result" not in response:

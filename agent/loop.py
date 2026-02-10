@@ -120,7 +120,9 @@ def execute_tool(call: ToolCall, mcp_client) -> Dict[str, Any]:
         }
 
 
-def run_loop(task: str, tools: List[str], mcp_client: Optional[McpClient] = None) -> AgentState:
+def run_loop(
+    task: str, tools: List[str], mcp_client: Optional[McpClient] = None
+) -> AgentState:
     """
     Run the agent reasoning loop for a given task.
 
