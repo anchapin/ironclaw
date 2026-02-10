@@ -17,6 +17,9 @@ pub mod vsock;
 #[cfg(feature = "vm-prototype")]
 pub mod prototype;
 
+#[cfg(test)]
+mod tests;
+
 use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -296,7 +299,7 @@ pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
 }
 
 #[cfg(test)]
-mod spawn_tests {
+mod inline_tests {
     use super::*;
 
     #[tokio::test]
