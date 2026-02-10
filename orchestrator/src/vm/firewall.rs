@@ -107,8 +107,17 @@ impl FirewallManager {
     pub fn verify_isolation(&self) -> Result<bool> {
         let output = Command::new("iptables")
             .args(["-L", &self.chain_name])
-            .output()
-            .context("Failed to list iptables rules")?;
+            .output();
+
+        // If iptables command fails (not installed, can't execute, etc.),
+        // treat as if rules are not active (graceful degradation)
+        let output = match output {
+            Ok(output) => output,
+            Err(_) => {
+                tracing::debug!("iptables not available, treating as not isolated");
+                return Ok(false);
+            }
+        };
 
         if !output.status.success() {
             // Chain doesn't exist, so rules are not active
