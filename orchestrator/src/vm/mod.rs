@@ -7,8 +7,9 @@
 // - Ephemeral: VM destroyed after task completion
 // - Security: No host execution, full isolation
 
-pub mod firecracker;
 pub mod config;
+pub mod firecracker;
+pub mod jailer;
 
 use anyhow::Result;
 

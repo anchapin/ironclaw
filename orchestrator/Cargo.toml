@@ -36,6 +36,9 @@ reqwest = { version = "0.12", features = ["json"] }
 # Random number generation (for retry jitter)
 rand = "0.8"
 
+# Binary detection (for jailer availability check)
+which = "7.0"
+
 [dev-dependencies]
 # Property-based testing
 proptest = "1.4"
