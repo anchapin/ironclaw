@@ -82,6 +82,5 @@ strip = true
 name = "mcp_startup"
 harness = false
 
-[[bench]]
-name = "mcp_transport"
-harness = false
+[features]
+vm-prototype = []
