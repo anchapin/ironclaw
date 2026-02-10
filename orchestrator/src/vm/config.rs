@@ -24,6 +24,21 @@ pub struct VmConfig {
 
     /// Enable networking (default: false for security)
     pub enable_networking: bool,
+
+    /// Mount rootfs as read-only (default: true for security)
+    pub rootfs_readonly: bool,
+
+    /// Enable rootfs integrity checking (default: true)
+    pub enable_integrity_check: bool,
+
+    /// Rootfs signature path (if signature verification enabled)
+    pub rootfs_signature_path: Option<String>,
+
+    /// Public key path for signature verification
+    pub rootfs_pubkey_path: Option<String>,
+
+    /// dm-verity hash tree path
+    pub rootfs_hash_tree_path: Option<String>,
 }
 
 impl Default for VmConfig {
@@ -35,6 +50,11 @@ impl Default for VmConfig {
             kernel_path: "/path/to/vmlinux.bin".to_string(),
             rootfs_path: "/path/to/rootfs.ext4".to_string(),
             enable_networking: false,
+            rootfs_readonly: true,
+            enable_integrity_check: true,
+            rootfs_signature_path: None,
+            rootfs_pubkey_path: None,
+            rootfs_hash_tree_path: None,
         }
     }
 }
@@ -62,6 +82,8 @@ impl VmConfig {
     /// Convert to Firecracker JSON config
     pub fn to_firecracker_json(&self) -> String {
         // TODO: Implement actual Firecracker JSON format
+        let readonly_flag = if self.rootfs_readonly { "true" } else { "false" };
+
         format!(
             r#"{{
   "boot-source": {{
@@ -71,9 +93,17 @@ impl VmConfig {
     "vcpu_count": {},
     "mem_size_mib": {},
     "ht_enabled": false
-  }}
+  }},
+  "drives": [
+    {{
+      "drive_id": "rootfs",
+      "path_on_host": "{}",
+      "is_root_device": true,
+      "is_read_only": {}
+    }}
+  ]
 }}"#,
-            self.kernel_path, self.vcpu_count, self.memory_mb
+            self.kernel_path, self.vcpu_count, self.memory_mb, self.rootfs_path, readonly_flag
         )
     }
 }

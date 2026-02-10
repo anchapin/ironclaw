@@ -9,6 +9,9 @@
 
 pub mod firecracker;
 pub mod config;
+pub mod rootfs;
+pub mod signature;
+pub mod builder;
 
 use anyhow::Result;
 

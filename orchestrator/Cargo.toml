@@ -36,6 +36,19 @@ reqwest = { version = "0.12", features = ["json"] }
 # Random number generation (for retry jitter)
 rand = "0.8"
 
+# Cryptography (for rootfs signing)
+sha2 = "0.10"
+ed25519 = "2.0"
+
+# Date/time handling
+chrono = "0.4"
+
+# Directory utilities
+dirs = "5.0"
+
+# Temporary directories for testing
+tempfile = "3.10"
+
 [dev-dependencies]
 # Property-based testing
 proptest = "1.4"
