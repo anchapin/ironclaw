@@ -12,7 +12,7 @@ fn bench_startup(c: &mut Criterion) {
         .unwrap_or_else(Vec::new);
     let command_args: Vec<&str> = command_args_raw.iter().map(|s| s.as_str()).collect();
 
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime for benchmark");
 
     // Benchmark: Spawn stdio transport
     c.bench_function("mcp_startup_stdio_spawn", |b| {
@@ -21,7 +21,7 @@ fn bench_startup(c: &mut Criterion) {
             let transport = rt.block_on(async {
                 StdioTransport::spawn(&command, &command_args)
                     .await
-                    .unwrap()
+                    .expect("Failed to spawn stdio transport for benchmark")
             });
             black_box(transport);
         });
@@ -34,7 +34,7 @@ fn bench_startup(c: &mut Criterion) {
             let client = rt.block_on(async {
                 let transport = StdioTransport::spawn(&command, &command_args)
                     .await
-                    .unwrap();
+                    .expect("Failed to spawn stdio transport for benchmark");
                 McpClient::new(transport)
             });
             black_box(client);
