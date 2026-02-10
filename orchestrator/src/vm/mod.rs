@@ -9,12 +9,7 @@
 
 pub mod config;
 pub mod firecracker;
-pub mod firewall;
 pub mod seccomp;
-
-// Prototype module for feasibility testing
-#[cfg(feature = "vm-prototype")]
-pub mod prototype;
 
 use anyhow::Result;
 use std::sync::Arc;

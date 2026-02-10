@@ -1,7 +1,6 @@
 // Firecracker Integration
 //
-// This module will handle the actual Firecracker VM spawning.
-// Placeholder for Phase 2 implementation.
+// This module handles the actual Firecracker VM spawning using the HTTP API over Unix sockets.
 
 use crate::vm::config::VmConfig;
 use anyhow::{anyhow, Context, Result};
@@ -11,7 +10,7 @@ use std::path::Path;
 use std::process::Child;
 #[cfg(unix)]
 use tokio::process::Child;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 #[cfg(unix)]
 use bytes::Bytes;
@@ -30,7 +29,9 @@ use tokio::net::UnixStream;
 pub struct FirecrackerProcess {
     pub pid: u32,
     pub socket_path: String,
+    #[cfg(unix)]
     pub seccomp_path: String,
+    #[cfg(unix)]
     pub child_process: Option<Child>,
     pub spawn_time_ms: f64,
 }
@@ -161,11 +162,13 @@ pub async fn start_firecracker(config: &VmConfig) -> Result<FirecrackerProcess> 
 }
 
 /// Stop a Firecracker VM process
+///
+/// Graceful shutdown of the Firecracker VM.
 #[cfg(unix)]
-pub async fn stop_firecracker(mut process: FirecrackerProcess) -> Result<()> {
+pub async fn stop_firecracker(process: FirecrackerProcess) -> Result<()> {
     info!("Stopping Firecracker VM (PID: {})", process.pid);
 
-    if let Some(mut child) = process.child_process.take() {
+    if let Some(mut child) = process.child_process {
         // Send SIGTERM
         let _ = child.kill().await;
         // Wait for it to exit
@@ -216,8 +219,8 @@ async fn send_request<T: Serialize>(
         }
     });
 
-    let req_body = if let Some(b) = body {
-        let json = serde_json::to_string(b).context("Failed to serialize body")?;
+    let req_body = if let Some(body) = body {
+        let json = serde_json::to_string(body)?;
         Full::new(Bytes::from(json))
     } else {
         Full::new(Bytes::from(""))
@@ -311,20 +314,15 @@ async fn start_instance(socket_path: &str) -> Result<()> {
     let action = Action {
         action_type: "InstanceStart".to_string(),
     };
-    send_request(socket_path, hyper::Method::PUT, "/actions", Some(&action))
-        .await
-        .context("Failed to start instance")?;
-    Ok(())
-}
+    send_request(
+        socket_path,
+        hyper::Method::PUT,
+        "/actions",
+        Some(&action),
+    )
+    .await
+    .context("Failed to start instance")?;
 
-// Dummy implementations for non-unix systems (Windows)
-#[cfg(not(unix))]
-pub async fn start_firecracker(_config: &VmConfig) -> anyhow::Result<FirecrackerProcess> {
-    anyhow::bail!("Firecracker is only supported on Unix systems")
-}
-
-#[cfg(not(unix))]
-pub async fn stop_firecracker(_process: FirecrackerProcess) -> anyhow::Result<()> {
     Ok(())
 }
 
