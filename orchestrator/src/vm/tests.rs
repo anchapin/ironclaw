@@ -6,10 +6,10 @@
 #[cfg(test)]
 mod tests {
     use crate::vm::{destroy_vm, spawn_vm, verify_network_isolation};
-    use std::path::Path;
 
+    /// Helper function to check if Firecracker is available
     fn firecracker_available() -> bool {
-        Path::new("./resources/vmlinux").exists()
+        std::path::Path::new("./resources/vmlinux").exists()
     }
 
     /// Test that VM cannot be created with networking enabled

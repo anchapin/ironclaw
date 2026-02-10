@@ -73,7 +73,7 @@ impl VmConfig {
             anyhow::bail!("Memory must be at least 128 MB");
         }
         if self.enable_networking {
-            anyhow::bail!("Networking MUST be disabled for security");
+            anyhow::bail!("Networking MUST be disabled for security. VMs should use vsock-only communication.");
         }
         Ok(())
     }
