@@ -28,9 +28,9 @@ mod tests {
     /// Test that multiple VMs can be spawned with unique firewall chains
     #[tokio::test]
     async fn test_multiple_vms_isolation() {
-    if !firecracker_available() {
-        return;
-    }
+        if !firecracker_available() {
+            return;
+        }
         let handle1 = spawn_vm("task-1").await.unwrap();
         let handle2 = spawn_vm("task-2").await.unwrap();
 
@@ -54,9 +54,9 @@ mod tests {
     /// Test that firewall rules are verified correctly
     #[tokio::test]
     async fn test_firewall_verification() {
-    if !firecracker_available() {
-        return;
-    }
+        if !firecracker_available() {
+            return;
+        }
         let handle = spawn_vm("firewall-test").await.unwrap();
 
         // Verify isolation (may be false if not running as root)
@@ -76,9 +76,9 @@ mod tests {
     /// Test that vsock paths are unique per VM
     #[tokio::test]
     async fn test_vsock_paths_are_unique() {
-    if !firecracker_available() {
-        return;
-    }
+        if !firecracker_available() {
+            return;
+        }
         let handle1 = spawn_vm("vsock-unique-1").await.unwrap();
         let handle2 = spawn_vm("vsock-unique-2").await.unwrap();
 
@@ -217,9 +217,9 @@ mod tests {
     /// Test edge case: VM with very long ID
     #[tokio::test]
     async fn test_vm_with_long_id() {
-    if !firecracker_available() {
-        return;
-    }
+        if !firecracker_available() {
+            return;
+        }
         let long_id = "a".repeat(20); // 20 chars + "vm-" prefix = 24 chars
         let handle = spawn_vm(&long_id).await.unwrap();
 
@@ -239,9 +239,9 @@ mod tests {
     /// Test edge case: VM with special characters in ID
     #[tokio::test]
     async fn test_vm_with_special_chars() {
-    if !firecracker_available() {
-        return;
-    }
+        if !firecracker_available() {
+            return;
+        }
         let special_id = "test-vm-123"; // Use a simpler ID with safe chars
         let handle = spawn_vm(special_id).await.unwrap();
 
@@ -320,9 +320,9 @@ mod tests {
     /// Test: Verify cleanup happens on VM destruction
     #[tokio::test]
     async fn test_vm_cleanup_on_destruction() {
-    if !firecracker_available() {
-        return;
-    }
+        if !firecracker_available() {
+            return;
+        }
         let handle = spawn_vm("cleanup-test").await.unwrap();
 
         let chain_name = handle
@@ -346,9 +346,9 @@ mod tests {
     /// Test: Multiple rapid VM spawns and destroys
     #[tokio::test]
     async fn test_rapid_vm_lifecycle() {
-    if !firecracker_available() {
-        return;
-    }
+        if !firecracker_available() {
+            return;
+        }
         for i in 0..10 {
             let handle = spawn_vm(&format!("rapid-{}", i)).await.unwrap();
             assert!(handle.vsock_path().is_some());
