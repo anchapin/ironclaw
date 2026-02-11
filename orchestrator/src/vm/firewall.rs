@@ -45,7 +45,8 @@ impl FirewallManager {
         // This prevents collisions (e.g., "vm-1" vs "vm_1") and ensures
         // the chain name stays within iptables limits (typically 28 chars).
         let hash = fnv1a_hash(&vm_id);
-        let chain_name = format!("IRONCLAW_{:x}", hash);
+        // Use zero-padding to ensure fixed length (9 + 16 = 25 chars)
+        let chain_name = format!("IRONCLAW_{:016x}", hash);
 
         Self { vm_id, chain_name }
     }
@@ -313,7 +314,10 @@ mod tests {
         let manager = FirewallManager::new("test-vm@123#456".to_string());
         assert_eq!(manager.vm_id(), "test-vm@123#456");
         // Chain name should be safe for iptables (alphanumeric + underscore)
-        assert!(manager.chain_name().chars().all(|c| c.is_alphanumeric() || c == '_'));
+        assert!(manager
+            .chain_name()
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_'));
     }
 
     #[test]
@@ -379,8 +383,20 @@ mod tests {
         let vm2 = FirewallManager::new("vm_1".to_string());
         let vm3 = FirewallManager::new("vm.1".to_string());
 
-        assert_ne!(vm1.chain_name(), vm2.chain_name(), "Collision detected: vm-1 vs vm_1");
-        assert_ne!(vm1.chain_name(), vm3.chain_name(), "Collision detected: vm-1 vs vm.1");
-        assert_ne!(vm2.chain_name(), vm3.chain_name(), "Collision detected: vm_1 vs vm.1");
+        assert_ne!(
+            vm1.chain_name(),
+            vm2.chain_name(),
+            "Collision detected: vm-1 vs vm_1"
+        );
+        assert_ne!(
+            vm1.chain_name(),
+            vm3.chain_name(),
+            "Collision detected: vm-1 vs vm.1"
+        );
+        assert_ne!(
+            vm2.chain_name(),
+            vm3.chain_name(),
+            "Collision detected: vm_1 vs vm.1"
+        );
     }
 }
