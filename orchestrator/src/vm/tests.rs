@@ -6,7 +6,7 @@
 #[cfg(test)]
 mod tests {
     use crate::vm::config::VmConfig;
-    use crate::vm::{destroy_vm, spawn_vm, spawn_vm_with_config, verify_network_isolation};
+    use crate::vm::{destroy_vm, spawn_vm_with_config, verify_network_isolation};
     use std::fs::File;
     use std::io::Write;
 
@@ -29,19 +29,6 @@ mod tests {
             kernel_path.to_str().unwrap().to_string(),
             rootfs_path.to_str().unwrap().to_string(),
         ))
-    }
-
-    fn check_vm_requirements() -> bool {
-        if !std::path::Path::new("/usr/local/bin/firecracker").exists() {
-            return false;
-        }
-        if !std::path::Path::new("./resources/vmlinux").exists() {
-            return false;
-        }
-        if !std::path::Path::new("./resources/rootfs.ext4").exists() {
-            return false;
-        }
-        true
     }
 
     /// Test that VM cannot be created with networking enabled
@@ -188,12 +175,45 @@ mod tests {
         assert!(config.memory_mb >= 128);
     }
 
-    /// Test that firewall manager properly handles VM IDs via hashing
+    #[tokio::test]
+    async fn test_vm_spawn_and_destroy() {
+        // This test requires actual Firecracker installation
+        // Skip in CI if not available
+        if !std::path::Path::new("/usr/local/bin/firecracker").exists() {
+            return;
+        }
+
+        // Ensure test assets exist
+        let _ = std::fs::create_dir_all("/tmp/ironclaw-fc-test");
+
+        let result = spawn_vm("test-task").await;
+
+        // If assets don't exist, we expect an error
+        if result.is_err() {
+            println!("Skipping test: Firecracker assets not available");
+            return;
+        }
+
+        let handle = result.unwrap();
+        assert_eq!(handle.id, "test-task");
+        assert!(handle.spawn_time_ms > 0.0);
+
+        destroy_vm(handle).await.unwrap();
+    }
+
     #[test]
-    fn test_firewall_sanitizes_vm_ids() {
+    fn test_vm_id_format() {
+        let task_id = "task-123";
+        let expected_id = task_id.to_string();
+        assert_eq!(expected_id, "task-123");
+    }
+
+    /// Test that firewall manager hashes VM IDs
+    #[test]
+    fn test_firewall_hashes_vm_ids() {
         use crate::vm::firewall::FirewallManager;
 
-        let test_cases = vec![
+        let test_ids = vec![
             "simple",
             "with-dash",
             "with@symbol",
@@ -202,24 +222,21 @@ mod tests {
             "with.dot",
         ];
 
-        for vm_id in test_cases {
+        for vm_id in test_ids {
             let manager = FirewallManager::new(vm_id.to_string());
             let chain = manager.chain_name();
 
-            // Check prefix
             assert!(chain.starts_with("IRONCLAW_"));
-
-            // Check length (9 + 16 = 25)
+            // Hash (16 hex chars) + Prefix (9 chars) = 25 chars
             assert_eq!(chain.len(), 25);
-
-            // Check allowed characters (alphanumeric + underscore)
-            assert!(chain.chars().all(|c| c.is_alphanumeric() || c == '_'));
+            // Hash should be hex
+            let hash_part = &chain[9..];
+            assert!(hash_part.chars().all(|c| c.is_ascii_hexdigit()));
         }
     }
 
     /// Test that vsock messages enforce size limits
     #[test]
-    #[cfg(unix)]
     fn test_vsock_message_size_limit() {
         use crate::vm::vsock::{VsockMessage, MAX_MESSAGE_SIZE};
         use serde_json::json;
@@ -240,7 +257,6 @@ mod tests {
 
     /// Test that vsock message types are properly serialized
     #[test]
-    #[cfg(unix)]
     fn test_vsock_message_serialization() {
         use crate::vm::vsock::VsockMessage;
         use serde_json::json;
@@ -456,7 +472,7 @@ mod tests {
     /// Test: Multiple rapid VM spawns and destroys
     #[tokio::test]
     async fn test_rapid_vm_lifecycle() {
-        if !check_vm_requirements() {
+        if !std::path::Path::new("/usr/local/bin/firecracker").exists() {
             return;
         }
 
@@ -481,38 +497,5 @@ mod tests {
             }
         }
         tracing::info!("Rapid VM lifecycle test completed successfully");
-    }
-
-    #[tokio::test]
-    async fn test_vm_spawn_and_destroy() {
-        // This test requires actual Firecracker installation
-        // Skip in CI if not available
-        if !std::path::Path::new("/usr/local/bin/firecracker").exists() {
-            return;
-        }
-
-        // Ensure test assets exist
-        let _ = std::fs::create_dir_all("/tmp/ironclaw-fc-test");
-
-        let result = spawn_vm("test-task").await;
-
-        // If assets don't exist, we expect an error
-        if result.is_err() {
-            println!("Skipping test: Firecracker assets not available");
-            return;
-        }
-
-        let handle = result.unwrap();
-        assert_eq!(handle.id, "test-task");
-        assert!(handle.spawn_time_ms > 0.0);
-
-        destroy_vm(handle).await.unwrap();
-    }
-
-    #[test]
-    fn test_vm_id_format() {
-        let task_id = "task-123";
-        let expected_id = task_id.to_string();
-        assert_eq!(expected_id, "task-123");
     }
 }

@@ -256,6 +256,7 @@ mod spawn_tests {
         let expected_id = task_id.to_string();
         assert_eq!(expected_id, "task-123");
     }
+    hash
 }
 
 /// Unit tests for VmHandle

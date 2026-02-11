@@ -59,7 +59,9 @@ impl VmConfig {
         };
 
         // Generate vsock path
-        config.vsock_path = Some(format!("/tmp/ironclaw/vsock/{}.sock", config.vm_id));
+        // Use hash to prevent path traversal
+        let hash = crate::vm::fnv1a_hash(&config.vm_id);
+        config.vsock_path = Some(format!("/tmp/ironclaw/vsock/{:016x}.sock", hash));
 
         config
     }

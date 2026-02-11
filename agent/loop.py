@@ -85,7 +85,7 @@ def think(state: AgentState) -> Optional[ToolCall]:
     return None
 
 
-def execute_tool(call: ToolCall, mcp_client) -> Dict[str, Any]:
+def execute_tool(call: ToolCall, mcp_client: McpClient) -> Dict[str, Any]:
     """
     Execute a tool via MCP connection.
 

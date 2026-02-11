@@ -197,7 +197,7 @@ class McpClient:
         Raises:
             McpError: On communication or protocol error
         """
-        if self._state == McpState.SHUTDOWN:
+        if self._state == McpState.SHUTDOWN or self._process is None:
             raise McpError("Cannot send request: client is shut down")
 
         # Increment request ID
@@ -213,13 +213,20 @@ class McpClient:
 
         # Send request via stdin
         request_json = json.dumps(request) + "\n"
+
+        if self._process.stdin is None:
+            raise McpError("Process stdin is not available")
+
         try:
-            self._process.stdin.write(request_json.encode())
+            self._process.stdin.write(request_json)
             self._process.stdin.flush()
         except (BrokenPipeError, OSError) as e:
             raise McpError(f"Failed to send request: {e}") from e
 
         # Read response from stdout
+        if self._process.stdout is None:
+            raise McpError("Process stdout is not available")
+
         try:
             response_line = self._process.stdout.readline()
             if not response_line:
@@ -418,7 +425,12 @@ class McpClient:
         self.initialize()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[type],
+        exc_val: Optional[Exception],
+        exc_tb: Optional[Any],
+    ) -> bool:
         """Context manager exit"""
         self.shutdown()
         return False
