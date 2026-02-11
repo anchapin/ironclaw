@@ -8,6 +8,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from llm_client import LlmClient, LlmError
 
+
 class TestLlmClient:
 
     @patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-test-anthropic"})
@@ -20,7 +21,7 @@ class TestLlmClient:
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test-openai"}, clear=True)
     @patch("llm_client.OpenAI")
-    @patch("llm_client.Anthropic", None) # Simulate Anthropic missing/failing
+    @patch("llm_client.Anthropic", None)  # Simulate Anthropic missing/failing
     def test_init_openai_fallback(self, mock_openai):
         """Test initialization with OpenAI fallback"""
         # Ensure Anthropic is not set in env to force fallback logic if we were relying on that,
@@ -50,8 +51,7 @@ class TestLlmClient:
 
         client = LlmClient()
         response = client.complete(
-            messages=[{"role": "user", "content": "Hi"}],
-            system="System prompt"
+            messages=[{"role": "user", "content": "Hi"}], system="System prompt"
         )
 
         assert response == "Hello from Claude"
@@ -72,13 +72,15 @@ class TestLlmClient:
 
         client = LlmClient()
         response = client.complete(
-            messages=[{"role": "user", "content": "Hi"}],
-            system="System prompt"
+            messages=[{"role": "user", "content": "Hi"}], system="System prompt"
         )
 
         assert response == "Hello from GPT"
         mock_instance.chat.completions.create.assert_called_once()
         call_kwargs = mock_instance.chat.completions.create.call_args.kwargs
         # OpenAI puts system in messages
-        assert call_kwargs["messages"][0] == {"role": "system", "content": "System prompt"}
+        assert call_kwargs["messages"][0] == {
+            "role": "system",
+            "content": "System prompt",
+        }
         assert call_kwargs["messages"][1] == {"role": "user", "content": "Hi"}

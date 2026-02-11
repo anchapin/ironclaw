@@ -23,7 +23,7 @@ from loop import (
     determine_action_kind,
     construct_system_prompt,
     parse_response,
-    present_diff_card
+    present_diff_card,
 )
 from mcp_client import Tool, McpClient
 from llm_client import LlmClient
@@ -38,8 +38,16 @@ class MockMcpClient:
 
     def list_tools(self):
         return [
-            Tool(name="read_file", description="Read file", input_schema={"path": "string"}),
-            Tool(name="write_file", description="Write file", input_schema={"path": "string", "content": "string"}),
+            Tool(
+                name="read_file",
+                description="Read file",
+                input_schema={"path": "string"},
+            ),
+            Tool(
+                name="write_file",
+                description="Write file",
+                input_schema={"path": "string", "content": "string"},
+            ),
         ]
 
 
@@ -93,8 +101,16 @@ class TestHelperFunctions:
 
     def test_construct_system_prompt(self):
         tools = [
-            Tool(name="read_file", description="Read file", input_schema={"path": "string"}),
-            Tool(name="write_file", description="Write file", input_schema={"path": "string", "content": "string"}),
+            Tool(
+                name="read_file",
+                description="Read file",
+                input_schema={"path": "string"},
+            ),
+            Tool(
+                name="write_file",
+                description="Write file",
+                input_schema={"path": "string", "content": "string"},
+            ),
         ]
         prompt = construct_system_prompt(tools)
         assert "<tool_definition>" in prompt
@@ -124,7 +140,11 @@ class TestHelperFunctions:
 
     def test_present_diff_card(self):
         """Test present_diff_card format"""
-        call = ToolCall(name="delete_file", arguments={"path": "file.txt"}, action_kind=ActionKind.RED)
+        call = ToolCall(
+            name="delete_file",
+            arguments={"path": "file.txt"},
+            action_kind=ActionKind.RED,
+        )
         card = present_diff_card(call)
         assert "delete_file" in card
         assert "Approve?" in card

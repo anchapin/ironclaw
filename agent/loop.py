@@ -49,6 +49,7 @@ class ActionKind(Enum):
     GREEN = "green"  # Autonomous: read-only, safe
     RED = "red"  # Requires approval: destructive, external
 
+
 # Keywords for action classification
 GREEN_KEYWORDS = ("read_", "list_", "get_", "search_", "find_")
 RED_KEYWORDS = ("write_", "delete_", "create_", "update_", "send_", "execute_")
@@ -161,7 +162,9 @@ def parse_response(response: str) -> Tuple[str, Optional[ToolCall]]:
     # We look for <function_calls>...</function_calls>
     # Inside, we look for <function_call name="...">...</function_call>
 
-    calls_match = re.search(r"<function_calls>(.*?)</function_calls>", response, re.DOTALL)
+    calls_match = re.search(
+        r"<function_calls>(.*?)</function_calls>", response, re.DOTALL
+    )
     if not calls_match:
         return thought, None
 
@@ -171,7 +174,9 @@ def parse_response(response: str) -> Tuple[str, Optional[ToolCall]]:
     # Using regex to find the first function call (IronClaw currently supports one call per turn)
     # TODO: Support multiple calls if needed
 
-    call_match = re.search(r'<function_call name="(.*?)">(.*?)</function_call>', calls_content, re.DOTALL)
+    call_match = re.search(
+        r'<function_call name="(.*?)">(.*?)</function_call>', calls_content, re.DOTALL
+    )
     if not call_match:
         return thought, None
 
@@ -189,10 +194,14 @@ def parse_response(response: str) -> Tuple[str, Optional[ToolCall]]:
 
     action_kind = determine_action_kind(tool_name)
 
-    return thought, ToolCall(name=tool_name, arguments=arguments, action_kind=action_kind)
+    return thought, ToolCall(
+        name=tool_name, arguments=arguments, action_kind=action_kind
+    )
 
 
-def think(state: AgentState, llm_client: Optional[LlmClient] = None) -> Optional[ToolCall]:
+def think(
+    state: AgentState, llm_client: Optional[LlmClient] = None
+) -> Optional[ToolCall]:
     """
     Main reasoning loop - decides next action based on state.
 
@@ -221,18 +230,15 @@ def think(state: AgentState, llm_client: Optional[LlmClient] = None) -> Optional
     # Ensure all content is string
     llm_messages = []
     for msg in state.messages:
-        llm_messages.append({
-            "role": msg["role"],
-            "content": str(msg["content"])
-        })
+        llm_messages.append({"role": msg["role"], "content": str(msg["content"])})
 
     # 3. Call LLM
     try:
         response = llm_client.complete(
             messages=llm_messages,
             system=system_prompt,
-            temperature=0.0, # Deterministic
-            max_tokens=4096
+            temperature=0.0,  # Deterministic
+            max_tokens=4096,
         )
     except Exception as e:
         print(f"Error during LLM completion: {e}")
@@ -292,7 +298,7 @@ def run_loop(
     task: str,
     mcp_client: Optional[McpClient] = None,
     tools: Optional[List[Tool]] = None,
-    llm_client: Optional[LlmClient] = None
+    llm_client: Optional[LlmClient] = None,
 ) -> AgentState:
     """
     Run the agent reasoning loop for a given task.
@@ -326,9 +332,7 @@ def run_loop(
         available_tools = tools
 
     state = AgentState(
-        messages=[{"role": "user", "content": task}],
-        tools=available_tools,
-        context={}
+        messages=[{"role": "user", "content": task}], tools=available_tools, context={}
     )
 
     max_iterations = 100
@@ -377,8 +381,14 @@ if __name__ == "__main__":
 
     # Dummy tools for testing
     dummy_tools = [
-        Tool(name="read_file", description="Read file", input_schema={"path": "string"}),
-        Tool(name="write_file", description="Write file", input_schema={"path": "string", "content": "string"}),
+        Tool(
+            name="read_file", description="Read file", input_schema={"path": "string"}
+        ),
+        Tool(
+            name="write_file",
+            description="Write file",
+            input_schema={"path": "string", "content": "string"},
+        ),
     ]
 
     print(f"Running agent with task: {task}")
