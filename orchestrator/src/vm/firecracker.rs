@@ -8,11 +8,15 @@ use http_body_util::{BodyExt, Full};
 use hyper::{Request, StatusCode};
 use hyper_util::rt::TokioIo;
 use serde::Serialize;
+#[allow(dead_code)]
 use std::path::{Path, PathBuf};
+#[allow(dead_code)]
 use std::time::Instant;
 #[cfg(unix)]
 use tokio::net::UnixStream;
+#[allow(dead_code)]
 use tokio::process::{Child, Command};
+#[allow(dead_code)]
 use tracing::{debug, info};
 
 use crate::vm::config::VmConfig;
