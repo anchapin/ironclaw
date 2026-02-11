@@ -9,6 +9,7 @@
 
 pub mod config;
 pub mod firecracker;
+pub mod firewall;
 pub mod seccomp;
 
 use anyhow::Result;

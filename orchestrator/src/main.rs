@@ -8,12 +8,9 @@
 //
 // Startup target: <500ms for new sessions
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::{Parser, Subcommand};
-use ironclaw_orchestrator::mcp::{McpClient, StdioTransport};
-use ironclaw_orchestrator::vm::{self, destroy_vm};
-use serde_json::json;
-use tracing::{error, info, Level};
+use tracing::{info, Level};
 use tracing_subscriber::EnvFilter;
 
 /// IronClaw: Local-first Agentic AI Runtime
@@ -42,19 +39,7 @@ enum Commands {
     /// Spawn a new JIT Micro-VM
     SpawnVm,
     /// Test MCP connection
-    TestMcp {
-        /// Command to spawn the MCP server (default: "npx" with filesystem server)
-        #[arg(long)]
-        command: Option<String>,
-
-        /// Arguments for the MCP server
-        #[arg(long, num_args = 0.., value_delimiter = ' ', allow_hyphen_values = true)]
-        args: Vec<String>,
-
-        /// Only list tools, do not call any
-        #[arg(long)]
-        list_tools: bool,
-    },
+    TestMcp,
 }
 
 #[tokio::main]
@@ -89,13 +74,9 @@ async fn main() -> Result<()> {
             info!("Spawning JIT Micro-VM...");
             spawn_vm().await?;
         }
-        Some(Commands::TestMcp {
-            command,
-            args,
-            list_tools,
-        }) => {
+        Some(Commands::TestMcp) => {
             info!("Testing MCP connection...");
-            test_mcp(command, args, list_tools).await?;
+            test_mcp().await?;
         }
         None => {
             info!("No command specified. Use 'ironclaw --help' for usage.");
@@ -121,139 +102,30 @@ async fn run_agent(task: String) -> Result<()> {
 /// Target: <200ms spawn time
 async fn spawn_vm() -> Result<()> {
     info!("⚡ Spawning JIT Micro-VM...");
-
-    // Use the vm module to spawn a VM
-    // We use a random ID or a fixed CLI one for testing
-    let task_id = format!("cli-{}", uuid::Uuid::new_v4());
-
-    let handle = vm::spawn_vm(&task_id).await?;
-
-    info!("VM spawned successfully!");
-    info!("  ID: {}", handle.id);
-    info!("  Spawn time: {:.2}ms", handle.spawn_time_ms);
-
-    // Verify target constraint
-    if handle.spawn_time_ms > 200.0 {
-        tracing::warn!("Spawn time exceeded target of 200ms!");
-    }
-
-    // Cleanup for now since this is just a test command
-    info!("Destroying VM for cleanup...");
-    destroy_vm(handle).await?;
-    info!("VM destroyed.");
-
+    // TODO: Implement Firecracker VM spawning
+    // 1. Create VM configuration
+    // 2. Load kernel image
+    // 3. Configure network (if needed)
+    // 4. Start VM
+    // 5. Verify startup time <200ms
+    println!("VM spawning placeholder");
     Ok(())
 }
 
 /// Test MCP (Model Context Protocol) connection
-async fn test_mcp(command: Option<String>, args: Vec<String>, list_tools_only: bool) -> Result<()> {
-    // Determine command and args
-    let (cmd, cmd_args) = if let Some(c) = command {
-        (c, args)
-    } else if !args.is_empty() {
-        ("npx".to_string(), args)
-    } else {
-        // Default to npx filesystem server
-        // Using `.` as the allowed directory so we can read Cargo.toml
-        (
-            "npx".to_string(),
-            vec![
-                "-y".to_string(),
-                "@modelcontextprotocol/server-filesystem".to_string(),
-                ".".to_string(),
-            ],
-        )
-    };
-
-    // Prepare string slices for spawn
-    let args_slices: Vec<&str> = cmd_args.iter().map(|s| s.as_str()).collect();
-
-    info!("🔌 Connecting to MCP server: {} {:?}", cmd, args_slices);
-
+async fn test_mcp() -> Result<()> {
+    info!("🔌 Testing MCP connection...");
+    // TODO: Implement MCP client
     // 1. Connect to MCP server
-    let transport = match StdioTransport::spawn(&cmd, &args_slices).await {
-        Ok(t) => t,
-        Err(e) => {
-            error!("Failed to spawn MCP server '{}': {}", cmd, e);
-            if cmd == "npx" {
-                info!("Tip: Make sure Node.js and npx are installed and available in your PATH.");
-            }
-            return Err(e);
-        }
-    };
-
-    let mut client = McpClient::new(transport);
-
-    info!("Initializing MCP client...");
-    client
-        .initialize()
-        .await
-        .context("Failed to initialize MCP client")?;
-
-    info!("MCP client initialized successfully!");
-    if let Some(caps) = client.server_capabilities() {
-        info!(
-            "Server: {} v{}",
-            caps.server_info.name, caps.server_info.version
-        );
-    }
-
     // 2. List available tools
-    info!("Listing available tools...");
-    let tools = client.list_tools().await.context("Failed to list tools")?;
-
-    info!("Found {} tools:", tools.len());
-    for tool in &tools {
-        info!("  - {}: {}", tool.name, tool.description);
-    }
-
-    if list_tools_only {
-        return Ok(());
-    }
-
     // 3. Test tool execution
-    // If using the default filesystem server, try to read Cargo.toml
-    if cmd == "npx" && tools.iter().any(|t| t.name == "read_file") {
-        info!("Testing 'read_file' tool with Cargo.toml...");
-        match client
-            .call_tool("read_file", json!({"path": "Cargo.toml"}))
-            .await
-        {
-            Ok(result) => {
-                info!("Tool execution successful!");
-                // The result from read_file usually contains "content"
-                if let Some(content) = result.get("content").and_then(|c| c.as_array()) {
-                    if let Some(first) = content.first() {
-                        if let Some(text) = first.get("text").and_then(|t| t.as_str()) {
-                            // Print first few lines
-                            let preview: String =
-                                text.lines().take(5).collect::<Vec<_>>().join("\n");
-                            println!("--- Cargo.toml preview ---\n{}\n...", preview);
-                        }
-                    }
-                } else {
-                    println!("Result: {:?}", result);
-                }
-            }
-            Err(e) => {
-                error!("Tool execution failed: {}", e);
-                return Err(e);
-            }
-        }
-    } else if !tools.is_empty() {
-        // Just print a message for other servers
-        info!("Skipping tool execution test (no known test tool found or not using default server). Use specific arguments to test tools.");
-    } else {
-        info!("No tools available to test.");
-    }
-
+    println!("MCP connection test placeholder");
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
 
     #[test]
     fn test_args_parsing() {
@@ -262,6 +134,7 @@ mod tests {
     }
 
     #[tokio::test]
+<<<<<<< HEAD
     async fn test_spawn_vm_integration() {
         // Skip if firecracker or resources are missing
         // This is a rough check; ideally we check for binary in PATH
@@ -287,5 +160,10 @@ mod tests {
         // If everything is present, it should succeed.
         // If it fails, it's a regression.
         assert!(result.is_ok(), "Spawn VM failed: {:?}", result.err());
+=======
+    async fn test_spawn_vm_placeholder() {
+        let result = spawn_vm().await;
+        assert!(result.is_ok());
+>>>>>>> 02b0cf6 (Remove duplicate chrono dependency from Cargo.toml)
     }
 }

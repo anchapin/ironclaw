@@ -98,8 +98,7 @@ impl StdioTransport {
     /// ).await?;
     /// ```
     pub async fn spawn(command: &str, args: &[&str]) -> Result<Self> {
-        tracing::info!("Spawning MCP server: {}", command);
-        tracing::debug!("Server arguments: {:?}", args);
+        tracing::info!("Spawning MCP server: {} {}", command, args.join(" "));
 
         // Spawn the child process with piped stdin/stdout
         let mut child = Command::new(command)
@@ -216,13 +215,11 @@ impl Transport for StdioTransport {
             return Err(anyhow::anyhow!("Transport is not connected"));
         }
 
-        // Clear buffer for reuse to avoid allocation
-        self.line_buffer.clear();
-
         // Read a line from stdout
+        let mut line = String::new();
         let bytes_read = self
             .stdout
-            .read_line(&mut self.line_buffer)
+            .read_line(&mut line)
             .await
             .context("Failed to read from MCP server stdout")?;
 
@@ -232,15 +229,11 @@ impl Transport for StdioTransport {
             return Err(anyhow::anyhow!("MCP server closed connection (EOF)"));
         }
 
-        tracing::debug!("Received from MCP server: {}", self.line_buffer.trim());
+        tracing::debug!("Received from MCP server: {}", line.trim());
 
         // Deserialize the JSON line
-        let response: McpResponse = serde_json::from_str(&self.line_buffer).with_context(|| {
-            format!(
-                "Failed to deserialize MCP response from JSON: {}",
-                self.line_buffer
-            )
-        })?;
+        let response: McpResponse = serde_json::from_str(&line)
+            .with_context(|| format!("Failed to deserialize MCP response from JSON: {}", line))?;
 
         Ok(response)
     }

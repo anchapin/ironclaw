@@ -1,6 +1,7 @@
 // Firecracker Integration
 //
-// This module handles the actual Firecracker VM spawning using the HTTP API over Unix sockets.
+// This module will handle the actual Firecracker VM spawning.
+// Placeholder for Phase 2 implementation.
 
 use crate::vm::config::VmConfig;
 use anyhow::{anyhow, Context, Result};
