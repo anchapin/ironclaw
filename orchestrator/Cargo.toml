@@ -82,3 +82,7 @@ strip = true
 [[bench]]
 name = "mcp_startup"
 harness = false
+
+[features]
+default = []
+vm-prototype = []

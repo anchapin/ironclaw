@@ -69,15 +69,19 @@ pub async fn execute_mcp_test(test_tool_call: bool) -> Result<McpTestResult> {
 
     // Step 1: Spawn filesystem MCP server
     info!("📦 Spawning filesystem MCP server via npx...");
-    let transport = StdioTransport::spawn("npx", &["-y", "@modelcontextprotocol/server-filesystem", "/tmp"])
-        .await
-        .context("Failed to spawn MCP server")?;
+    let transport = StdioTransport::spawn(
+        "npx",
+        &["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+    )
+    .await
+    .context("Failed to spawn MCP server")?;
 
     // Step 2: Create and initialize client
     info!("🔧 Initializing MCP client...");
     let mut client = McpClient::new(transport);
 
-    client.initialize()
+    client
+        .initialize()
         .await
         .context("Failed to initialize MCP client")?;
 
@@ -85,13 +89,9 @@ pub async fn execute_mcp_test(test_tool_call: bool) -> Result<McpTestResult> {
 
     // Step 3: List available tools
     info!("🔍 Listing available tools...");
-    let tools = client.list_tools()
-        .await
-        .context("Failed to list tools")?;
+    let tools = client.list_tools().await.context("Failed to list tools")?;
 
-    let tool_names: Vec<String> = tools.iter()
-        .map(|t| t.name.clone())
-        .collect();
+    let tool_names: Vec<String> = tools.iter().map(|t| t.name.clone()).collect();
 
     info!("✅ Discovered {} tools:", tools.len());
     for name in &tool_names {
@@ -141,21 +141,22 @@ async fn test_write_file(client: &mut McpClient<StdioTransport>) -> Result<Value
 
     info!("📝 Writing test file to: {}", test_path);
 
-    let result = client.call_tool(
-        "write_file",
-        serde_json::json!({
-            "path": test_path,
-            "content": "IronClaw MCP test\n"
-        })
-    ).await
-    .context("Failed to call write_file tool")?;
+    let result = client
+        .call_tool(
+            "write_file",
+            serde_json::json!({
+                "path": test_path,
+                "content": "IronClaw MCP test\n"
+            }),
+        )
+        .await
+        .context("Failed to call write_file tool")?;
 
     // Clean up test file
     info!("🗑️  Cleaning up test file...");
-    let _ = client.call_tool(
-        "delete_file",
-        serde_json::json!({"path": test_path})
-    ).await;
+    let _ = client
+        .call_tool("delete_file", serde_json::json!({"path": test_path}))
+        .await;
 
     Ok(result)
 }
@@ -170,7 +171,8 @@ mod tests {
     #[tokio::test]
     #[ignore] // Integration test - requires npx
     async fn test_execute_mcp_test_basic() {
-        let result = execute_mcp_test(false).await
+        let result = execute_mcp_test(false)
+            .await
             .expect("MCP test should succeed");
 
         assert!(result.success);
@@ -182,7 +184,8 @@ mod tests {
     #[tokio::test]
     #[ignore] // Integration test - requires npx
     async fn test_execute_mcp_test_with_tool_call() {
-        let result = execute_mcp_test(true).await
+        let result = execute_mcp_test(true)
+            .await
             .expect("MCP test should succeed");
 
         assert!(result.success);

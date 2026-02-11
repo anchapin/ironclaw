@@ -32,6 +32,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 from enum import Enum
@@ -106,11 +107,19 @@ class McpClient:
             McpError: If command validation fails
         """
         self.server_name = server_name
-        self.command = self._validate_command(command)
         self.root_dir = root_dir
         self.args = args or []
 
-        self._process: Optional[subprocess.Popen] = None
+        # Construct full command
+        full_command = command.copy()
+        if self.root_dir:
+            full_command.append(self.root_dir)
+        if self.args:
+            full_command.extend(self.args)
+
+        self.command = self._validate_command(full_command)
+
+        self._process: Optional[subprocess.Popen[str]] = None
         self._state = McpState.DISCONNECTED
 
         # Request/Response tracking
@@ -172,7 +181,6 @@ class McpClient:
 
         if base_name not in safe_commands:
             # Log warning but don't fail - user may have custom setup
-            import sys
             print(
                 f"Warning: Command '{base_name}' not in known-safe list. "
                 f"Ensure this command is trusted and does not accept untrusted input.",
@@ -200,6 +208,9 @@ class McpClient:
         if self._state == McpState.SHUTDOWN:
             raise McpError("Cannot send request: client is shut down")
 
+        if not self._process or not self._process.stdin or not self._process.stdout:
+            raise McpError("Process not started or pipes not connected")
+
         # Increment request ID
         self._request_id += 1
 
@@ -214,7 +225,7 @@ class McpClient:
         # Send request via stdin
         request_json = json.dumps(request) + "\n"
         try:
-            self._process.stdin.write(request_json.encode())
+            self._process.stdin.write(request_json)
             self._process.stdin.flush()
         except (BrokenPipeError, OSError) as e:
             raise McpError(f"Failed to send request: {e}") from e
@@ -277,13 +288,13 @@ class McpClient:
                 text=True,
                 bufsize=1,  # Line buffered
             )
-        except (FileNotFoundError, OSError) as e:
+        except FileNotFoundError:
+            raise McpError(f"Command not found: {orch_cmd[0]}. Ensure it is installed and in PATH.")
+        except OSError as e:
             raise McpError(f"Failed to spawn orchestrator: {e}") from e
 
         # Wait briefly for process to start
         # (In production, would check if process is ready)
-        import time
-
         time.sleep(0.1)
 
         self._state = McpState.CONNECTED
@@ -397,7 +408,8 @@ class McpClient:
         if self._process:
             # Try graceful shutdown first
             try:
-                self._process.stdin.close()
+                if self._process.stdin:
+                    self._process.stdin.close()
             except:
                 pass
 
@@ -412,26 +424,30 @@ class McpClient:
 
         self._state = McpState.SHUTDOWN
 
-    def __enter__(self):
+    def __enter__(self) -> "McpClient":
         """Context manager entry"""
         self.spawn()
         self.initialize()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[type],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any]
+    ) -> bool:
         """Context manager exit"""
         self.shutdown()
         return False
 
 
-def main():
+def main() -> int:
     """
     Test MCP client with filesystem server.
 
     Usage:
         python -m agent.mcp_client
     """
-    import sys
     import tempfile
 
     print("IronClaw MCP Client - Test")
@@ -464,7 +480,13 @@ def main():
             print("4. Calling tool: read_file")
             result = client.call_tool("read_file", {"path": "test.txt"})
             content = result.get("content", [])
-            print(f"   File content: {content[0][:50]}...")
+            if content and isinstance(content[0], dict):
+                 # MCP spec for read_file returns content as list of text/blob
+                 # Example: [{"type": "text", "text": "..."}]
+                 text = content[0].get("text", "")
+                 print(f"   File content: {text[:50]}...")
+            else:
+                 print(f"   File content (raw): {content}")
 
         except McpError as e:
             print(f"   Error: {e}")
