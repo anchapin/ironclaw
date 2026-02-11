@@ -17,7 +17,9 @@ pub mod vm {
     }
 
     pub async fn spawn_vm(task_id: &str) -> Result<VmHandle> {
-        Err(anyhow!("VM spawning is only supported on Unix-like systems"))
+        Err(anyhow!(
+            "VM spawning is only supported on Unix-like systems"
+        ))
     }
 
     pub async fn destroy_vm(_handle: VmHandle) -> Result<()> {
