@@ -1,0 +1,23 @@
+The enforce ratchet job is failing during the check rust ratchet step. This is what Github Copilot suggests: The job failed because the Rust coverage percentage (55.1%) is below the required ratchet threshold (66.4%) as defined in the workflow. To resolve this:
+
+1. Add tests to increase coverage for your Rust code, especially in orchestrator/ where coverage is measured.
+2. Focus on code paths that are currently not being exercised—look for logic, branches, and error handling without test coverage.
+3. Once your tests are added, rerun the workflow. When coverage reaches or exceeds 66.4%, the job will pass.
+
+Sample Rust test addition:
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_some_function() {
+        let result = some_function();
+        assert_eq!(result, expected_value);
+    }
+}
+```
+
+For reference, the coverage ratchet logic is enforced in .github/workflows/coverage-ratchet.yml, section “Check Rust ratchet”.
+
+You can view the failing job log here: https://github.com/anchapin/ironclaw/actions/runs/21911186439/job/63265881785?pr=90
