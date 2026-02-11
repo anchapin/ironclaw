@@ -2,13 +2,14 @@
   "cli_version": "0.4.2",
   "checkpoint_id": "bdf40454b1a2",
   "strategy": "manual-commit",
-  "branch": "feature/17-18-21-mega-pr-security-features",
-  "checkpoints_count": 2,
+  "branch": "feature/55-fix-rust-formatting",
+  "checkpoints_count": 3,
   "files_touched": [
     ".github/workflows/ci.yml",
     "CLAUDE.md",
     "PLATFORMS.md",
-    "README.md"
+    "README.md",
+    "orchestrator/Cargo.toml"
   ],
   "sessions": [
     {
@@ -24,13 +25,20 @@
       "context": "/bd/f40454b1a2/1/context.md",
       "content_hash": "/bd/f40454b1a2/1/content_hash.txt",
       "prompt": "/bd/f40454b1a2/1/prompt.txt"
+    },
+    {
+      "metadata": "/bd/f40454b1a2/2/metadata.json",
+      "transcript": "/bd/f40454b1a2/2/full.jsonl",
+      "context": "/bd/f40454b1a2/2/context.md",
+      "content_hash": "/bd/f40454b1a2/2/content_hash.txt",
+      "prompt": "/bd/f40454b1a2/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 7902959,
+    "input_tokens": 8414199,
     "cache_creation_tokens": 0,
     "cache_read_tokens": 38232320,
-    "output_tokens": 116656,
-    "api_call_count": 529
+    "output_tokens": 122077,
+    "api_call_count": 546
   }
 }

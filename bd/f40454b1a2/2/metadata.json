@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "bdf40454b1a2",
+  "session_id": "8c6a2d14-6bb2-480a-bc95-2d9262f90784",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-11T01:48:34.743075085Z",
+  "branch": "feature/55-fix-rust-formatting",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "orchestrator/Cargo.toml"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "dd9d9d8c-3651-472d-8ea2-7c3931df5523",
+  "token_usage": {
+    "input_tokens": 511240,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 5421,
+    "api_call_count": 17
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-11T01:48:34.733287178Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 174,
+    "human_removed": 213,
+    "total_committed": 3,
+    "agent_percentage": 0
+  }
+}
