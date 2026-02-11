@@ -25,19 +25,18 @@ pub mod prototype;
 #[cfg(test)]
 mod tests;
 
-use anyhow::Result;
 use crate::vm::config::VmConfig;
-
-#[cfg(unix)]
-use std::sync::Arc;
-#[cfg(unix)]
-use tokio::sync::Mutex;
 #[cfg(unix)]
 use crate::vm::firecracker::{start_firecracker, stop_firecracker, FirecrackerProcess};
 #[cfg(unix)]
 use crate::vm::firewall::FirewallManager;
 #[cfg(unix)]
 use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
+use anyhow::Result;
+#[cfg(unix)]
+use std::sync::Arc;
+#[cfg(unix)]
+use tokio::sync::Mutex;
 
 // ------------------------------------------------------------------------------------------------
 // UNIX IMPLEMENTATION
