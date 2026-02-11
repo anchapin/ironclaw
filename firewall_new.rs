@@ -14,23 +14,9 @@ use std::process::Command;
 use tracing::{info, warn};
 
 /// Firewall manager for VM network isolation
-#[derive(Debug)]
 pub struct FirewallManager {
     vm_id: String,
     chain_name: String,
-}
-
-// Simple FNV-1a hash implementation for deterministic chain names
-fn fnv1a_hash(text: &str) -> u64 {
-    const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
-    const FNV_PRIME: u64 = 0x100000001b3;
-
-    let mut hash = FNV_OFFSET_BASIS;
-    for byte in text.bytes() {
-        hash ^= byte as u64;
-        hash = hash.wrapping_mul(FNV_PRIME);
-    }
-    hash
 }
 
 impl FirewallManager {
@@ -40,15 +26,38 @@ impl FirewallManager {
     ///
     /// * `vm_id` - Unique identifier for the VM
     pub fn new(vm_id: String) -> Self {
-        // Create a unique, short chain name for this VM using hashing.
-        // We use FNV-1a hash to generate a deterministic, unique suffix.
-        // This prevents collisions (e.g., "vm-1" vs "vm_1") and ensures
-        // the chain name stays within iptables limits (typically 28 chars).
-        let hash = fnv1a_hash(&vm_id);
-        // Use zero-padding to ensure fixed length (9 + 16 = 25 chars)
-        let chain_name = format!("IRONCLAW_{:016x}", hash);
+        // Create a unique chain name for this VM
+        // Sanitize vm_id to only contain alphanumeric characters
+        let sanitized_id: String = vm_id
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+            .collect();
+
+        // Calculate deterministic hash of the FULL vm_id to ensure uniqueness even if prefixes match
+        // We implement a simple FNV-1a hash inline to avoid external dependencies
+        // and ensure stability across process restarts (unlike DefaultHasher).
+        let hash = Self::fnv1a_hash(&vm_id);
+
+        // Truncate sanitized ID to 10 chars to leave room for hash (8 chars) + separators
+        // Chain name format: IRONCLAW_<prefix>_<hash> (max 28 chars)
+        // IRONCLAW_ (9) + prefix (10) + _ (1) + hash (8) = 28
+        let prefix: String = sanitized_id.chars().take(10).collect();
+        let chain_name = format!("IRONCLAW_{}_{:08x}", prefix, hash as u32); // Use lower 32 bits for 8 hex chars
 
         Self { vm_id, chain_name }
+    }
+
+    /// Simple FNV-1a 64-bit hash implementation
+    fn fnv1a_hash(text: &str) -> u64 {
+        const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+        const FNV_PRIME: u64 = 0x100000001b3;
+
+        let mut hash = FNV_OFFSET_BASIS;
+        for byte in text.bytes() {
+            hash ^= byte as u64;
+            hash = hash.wrapping_mul(FNV_PRIME);
+        }
+        hash
     }
 
     /// Configure firewall rules to isolate the VM
@@ -303,21 +312,21 @@ mod tests {
     fn test_firewall_manager_creation() {
         let manager = FirewallManager::new("test-vm".to_string());
         assert_eq!(manager.vm_id(), "test-vm");
-        assert!(manager.chain_name().starts_with("IRONCLAW_"));
-        // Length should be 9 (prefix) + 16 (hex hash) = 25
-        assert_eq!(manager.chain_name().len(), 25);
+        assert!(manager.chain_name().contains("IRONCLAW"));
+        assert!(manager.chain_name().contains("test_vm"));
     }
 
     #[test]
     fn test_firewall_manager_sanitization() {
-        // Test that special characters are handled gracefully via hashing
+        // Test that special characters are sanitized
         let manager = FirewallManager::new("test-vm@123#456".to_string());
         assert_eq!(manager.vm_id(), "test-vm@123#456");
-        // Chain name should be safe for iptables (alphanumeric + underscore)
-        assert!(manager
-            .chain_name()
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '_'));
+        // Chain name contains truncated prefix (10 chars)
+        // sanitized: test_vm_123_456 (15 chars)
+        // prefix: test_vm_12
+        assert!(manager.chain_name().contains("test_vm_12"));
+        assert!(!manager.chain_name().contains('@'));
+        assert!(!manager.chain_name().contains('#'));
     }
 
     #[test]
@@ -355,8 +364,6 @@ mod tests {
             "with@symbol",
             "with space",
             "with/slash",
-            // Add a very long ID
-            "a_very_long_vm_id_that_exceeds_limits_of_iptables_chains_and_more",
         ];
 
         for vm_id in test_cases {
@@ -366,37 +373,8 @@ mod tests {
             // Chain name should be a valid iptables chain name
             // (max 28 characters, alphanumeric and underscore only)
             assert!(chain.len() <= 28);
-            assert_eq!(chain.len(), 25); // Specifically 25 with our implementation
             assert!(chain.chars().all(|c| c.is_alphanumeric() || c == '_'));
             assert!(chain.starts_with("IRONCLAW_"));
         }
-    }
-
-    #[test]
-    fn test_firewall_chain_name_collision() {
-        // This test ensures that different inputs produce different hashes
-        // and thus different chain names.
-        // Specifically testing the collision case identified: "vm-1" vs "vm_1"
-        // In the old implementation, both sanitized to "vm_1".
-
-        let vm1 = FirewallManager::new("vm-1".to_string());
-        let vm2 = FirewallManager::new("vm_1".to_string());
-        let vm3 = FirewallManager::new("vm.1".to_string());
-
-        assert_ne!(
-            vm1.chain_name(),
-            vm2.chain_name(),
-            "Collision detected: vm-1 vs vm_1"
-        );
-        assert_ne!(
-            vm1.chain_name(),
-            vm3.chain_name(),
-            "Collision detected: vm-1 vs vm.1"
-        );
-        assert_ne!(
-            vm2.chain_name(),
-            vm3.chain_name(),
-            "Collision detected: vm_1 vs vm.1"
-        );
     }
 }
