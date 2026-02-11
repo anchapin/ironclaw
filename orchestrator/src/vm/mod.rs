@@ -424,8 +424,9 @@ pub fn fnv1a_hash(data: &str) -> u64 {
     const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
     const FNV_PRIME: u64 = 0x100000001b3;
 
-    data.bytes()
-        .fold(FNV_OFFSET_BASIS, |acc, byte| (acc ^ u64::from(byte)).wrapping_mul(FNV_PRIME))
+    data.bytes().fold(FNV_OFFSET_BASIS, |acc, byte| {
+        (acc ^ u64::from(byte)).wrapping_mul(FNV_PRIME)
+    })
 }
 
 /// Verify that a VM is properly network-isolated
