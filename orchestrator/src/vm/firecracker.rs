@@ -29,6 +29,7 @@ pub struct FirecrackerProcess {
 
 // Firecracker API structs
 
+#[cfg(unix)]
 #[derive(Serialize)]
 struct BootSource {
     kernel_image_path: String,
@@ -36,6 +37,7 @@ struct BootSource {
     boot_args: Option<String>,
 }
 
+#[cfg(unix)]
 #[derive(Serialize)]
 struct Drive {
     drive_id: String,
@@ -44,6 +46,7 @@ struct Drive {
     is_read_only: bool,
 }
 
+#[cfg(unix)]
 #[derive(Serialize)]
 struct MachineConfiguration {
     vcpu_count: u8,
@@ -51,6 +54,7 @@ struct MachineConfiguration {
     // ht_enabled: bool, // Optional, defaults to false
 }
 
+#[cfg(unix)]
 #[derive(Serialize)]
 struct VsockDevice {
     vsock_id: String,
@@ -58,6 +62,7 @@ struct VsockDevice {
     uds_path: String,
 }
 
+#[cfg(unix)]
 #[derive(Serialize)]
 struct Action {
     action_type: String,
@@ -311,6 +316,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(unix)]
     fn test_firecracker_structs_serialization() {
         let boot_source = BootSource {
             kernel_image_path: "/tmp/kernel".to_string(),
