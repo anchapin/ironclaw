@@ -179,7 +179,8 @@ mod tests {
             // Check that it contains only safe chars (alphanumeric and underscore)
             assert!(
                 chain.chars().all(|c| c.is_alphanumeric() || c == '_'),
-                "Chain name contains invalid chars: {}", chain
+                "Chain name contains invalid chars: {}",
+                chain
             );
         }
     }
