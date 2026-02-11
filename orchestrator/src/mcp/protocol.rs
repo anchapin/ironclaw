@@ -688,7 +688,7 @@ mod tests {
         let deserialized: McpResponse = serde_json::from_str(&json).unwrap();
 
         assert_eq!(original.id, deserialized.id);
-        assert_eq!(original.result, deserialized.result);
+        assert_eq!(original.result.as_ref(), deserialized.result.as_ref());
         assert_eq!(original.error, deserialized.error);
     }
 
@@ -702,8 +702,8 @@ mod tests {
         let deserialized: McpResponse = serde_json::from_str(&json).unwrap();
 
         assert_eq!(original.id, deserialized.id);
-        assert_eq!(original.error.unwrap().code, deserialized.error.unwrap().code);
-        assert_eq!(original.error.unwrap().message, deserialized.error.unwrap().message);
+        assert_eq!(original.error.as_ref().unwrap().code, deserialized.error.as_ref().unwrap().code);
+        assert_eq!(original.error.as_ref().unwrap().message, deserialized.error.as_ref().unwrap().message);
     }
 
     #[test]
