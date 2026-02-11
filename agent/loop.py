@@ -98,13 +98,13 @@ def think(state: AgentState) -> Optional[ToolCall]:
         return ToolCall(
             name="read_file",
             arguments={"path": "test.txt"},
-            action_kind=ActionKind.GREEN
+            action_kind=ActionKind.GREEN,
         )
     elif "write" in content:
         return ToolCall(
             name="write_file",
             arguments={"path": "test.txt", "content": "Hello"},
-            action_kind=ActionKind.GREEN
+            action_kind=ActionKind.GREEN,
         )
 
     # Default: Task complete
