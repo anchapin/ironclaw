@@ -49,6 +49,10 @@ class ActionKind(Enum):
     GREEN = "green"  # Autonomous: read-only, safe
     RED = "red"  # Requires approval: destructive, external
 
+# Keywords for action classification
+GREEN_KEYWORDS = ("read_", "list_", "get_", "search_", "find_")
+RED_KEYWORDS = ("write_", "delete_", "create_", "update_", "send_", "execute_")
+
 
 @dataclass
 class ToolCall:
@@ -81,13 +85,18 @@ def determine_action_kind(tool_name: str) -> ActionKind:
     - Red: write_*, delete_*, create_*, update_*, send_*, execute_*
     - Default: Red (safe by default)
     """
-    green_prefixes = ("read_", "list_", "get_", "search_", "find_")
-
-    if tool_name.startswith(green_prefixes):
+    if tool_name.startswith(GREEN_KEYWORDS):
         return ActionKind.GREEN
 
     # Default to RED for safety
     return ActionKind.RED
+
+
+def present_diff_card(action: ToolCall) -> str:
+    """
+    Present a Diff Card for user approval.
+    """
+    return f"I am about to {action.name}. Approve?"
 
 
 def construct_system_prompt(tools: List[Tool]) -> str:
@@ -333,7 +342,6 @@ def run_loop(
             # Task complete or no LLM
             break
 
-        print(f"🛠️  Executing tool: \033[36m{action.name}\033[0m")
         # Execute tool (if MCP client provided)
         if mcp_client is not None:
             result = execute_tool(action, mcp_client)

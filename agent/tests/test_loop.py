@@ -22,7 +22,8 @@ from loop import (
     ToolCall,
     determine_action_kind,
     construct_system_prompt,
-    parse_response
+    parse_response,
+    present_diff_card
 )
 from mcp_client import Tool, McpClient
 from llm_client import LlmClient
@@ -121,6 +122,13 @@ class TestHelperFunctions:
         assert thought == "Just thinking."
         assert call is None
 
+    def test_present_diff_card(self):
+        """Test present_diff_card format"""
+        call = ToolCall(name="delete_file", arguments={"path": "file.txt"}, action_kind=ActionKind.RED)
+        card = present_diff_card(call)
+        assert "delete_file" in card
+        assert "Approve?" in card
+
 
 class TestThink:
     """Tests for the think() function"""
@@ -190,14 +198,14 @@ class TestRunLoop:
     def test_run_loop_returns_state(self):
         """Test that run_loop returns an AgentState"""
         # Mock think to return None immediately to avoid infinite loop or LLM calls
-        with patch("agent.loop.think", return_value=None):
+        with patch("loop.think", return_value=None):
             state = run_loop("Test task", tools=[])
             assert isinstance(state, AgentState)
 
     def test_run_loop_initializes_with_user_message(self):
         """Test that run_loop adds user message to state"""
         task = "Test task"
-        with patch("agent.loop.think", return_value=None):
+        with patch("loop.think", return_value=None):
             state = run_loop(task, tools=[])
             assert len(state.messages) >= 1
             assert state.messages[0]["role"] == "user"
@@ -206,14 +214,14 @@ class TestRunLoop:
     def test_run_loop_includes_tools_in_state(self):
         """Test that run_loop includes tools in state"""
         tools = [Tool(name="test", description="desc", input_schema={})]
-        with patch("agent.loop.think", return_value=None):
+        with patch("loop.think", return_value=None):
             state = run_loop("Test task", tools=tools)
             assert state.tools == tools
 
     def test_run_loop_fetches_tools_from_mcp(self):
         """Test run_loop uses MCP client to fetch tools"""
         mock_mcp = MockMcpClient()
-        with patch("agent.loop.think", return_value=None):
+        with patch("loop.think", return_value=None):
             state = run_loop("Test task", mcp_client=mock_mcp)
             assert len(state.tools) == 2
             assert state.tools[0].name == "read_file"
