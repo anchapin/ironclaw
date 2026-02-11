@@ -42,6 +42,13 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("networking must be disabled"));
     }
 
+    // Helper to check if Firecracker resources are available
+    fn resources_available() -> bool {
+        std::path::Path::new("/usr/local/bin/firecracker").exists()
+            && std::path::Path::new("./resources/vmlinux").exists()
+            && std::path::Path::new("./resources/rootfs.ext4").exists()
+    }
+
     /// Test that multiple VMs can be spawned with unique firewall chains
     #[tokio::test]
     async fn test_multiple_vms_isolation() {
@@ -432,6 +439,10 @@ mod tests {
     /// Test: Multiple rapid VM spawns and destroys
     #[tokio::test]
     async fn test_rapid_vm_lifecycle() {
+        if !resources_available() {
+            return;
+        }
+
         for i in 0..10 {
             let (kernel_path, rootfs_path) = create_test_resources().unwrap();
 
