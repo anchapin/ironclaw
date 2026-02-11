@@ -56,6 +56,7 @@ pub struct VmHandle {
     #[cfg(unix)]
     process: Arc<Mutex<Option<FirecrackerProcess>>>,
     #[cfg(not(unix))]
+    #[allow(dead_code)]
     process: Arc<Mutex<Option<()>>>,
 
     pub spawn_time_ms: f64,
