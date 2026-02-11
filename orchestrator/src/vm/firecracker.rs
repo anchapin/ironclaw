@@ -8,28 +8,20 @@ use http_body_util::{BodyExt, Full};
 use hyper::{Request, StatusCode};
 use hyper_util::rt::TokioIo;
 use serde::Serialize;
-#[allow(dead_code)]
 use std::path::{Path, PathBuf};
-#[allow(dead_code)]
 use std::time::Instant;
 #[cfg(unix)]
 use tokio::net::UnixStream;
-#[allow(dead_code)]
 use tokio::process::{Child, Command};
-#[allow(dead_code)]
 use tracing::{debug, info};
 
 use crate::vm::config::VmConfig;
 
 // Type aliases to simplify complex hyper types
-// TODO: These will be used when implementing full HTTP client for Firecracker API
-#[allow(dead_code)]
 type HttpSendRequest = hyper::client::conn::http1::SendRequest<Full<Bytes>>;
-#[allow(dead_code)]
 type HttpConnection = hyper::client::conn::http1::Connection<TokioIo<UnixStream>, Full<Bytes>>;
 
 /// Firecracker VM process manager
-#[cfg(target_os = "linux")]
 #[derive(Debug)]
 pub struct FirecrackerProcess {
     pub pid: u32,
@@ -63,12 +55,20 @@ struct MachineConfiguration {
 }
 
 #[derive(Serialize)]
+#[allow(dead_code)]
+struct Vsock {
+    vsock_id: String,
+    guest_cid: u32,
+    uds_path: String,
+}
+
+#[derive(Serialize)]
 struct Action {
     action_type: String,
 }
 
 /// Start a Firecracker VM process
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 pub async fn start_firecracker(config: &VmConfig) -> Result<FirecrackerProcess> {
     let start_time = Instant::now();
     info!("Starting Firecracker VM: {}", config.vm_id);
@@ -154,7 +154,7 @@ pub async fn start_firecracker(config: &VmConfig) -> Result<FirecrackerProcess> 
 }
 
 /// Stop a Firecracker VM process
-#[cfg(target_os = "linux")]
+#[cfg(unix)]
 pub async fn stop_firecracker(mut process: FirecrackerProcess) -> Result<()> {
     info!("Stopping Firecracker VM (PID: {})", process.pid);
 
@@ -189,13 +189,14 @@ async fn send_request<T: Serialize>(
     // though reusing it would be slightly faster.
     // Given the low number of requests, this is acceptable.
 
-    let stream = UnixStream::connect(socket_path)
+    let stream: UnixStream = UnixStream::connect(socket_path)
         .await
         .context("Failed to connect to firecracker socket")?;
     let io = TokioIo::new(stream);
-    let (mut sender, conn) = hyper::client::conn::http1::handshake(io)
-        .await
-        .context("Handshake failed")?;
+    let (mut sender, conn): (HttpSendRequest, HttpConnection) =
+        hyper::client::conn::http1::handshake(io)
+            .await
+            .context("Handshake failed")?;
 
     tokio::task::spawn(async move {
         if let Err(err) = conn.await {
@@ -219,7 +220,7 @@ async fn send_request<T: Serialize>(
         .body(req_body)
         .context("Failed to build request")?;
 
-    let res = sender
+    let res: hyper::Response<hyper::body::Incoming> = sender
         .send_request(req)
         .await
         .context("Failed to send request")?;
@@ -255,7 +256,7 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
         drive_id: "rootfs".to_string(),
         path_on_host: config.rootfs_path.clone(),
         is_root_device: true,
-        is_read_only: false,
+        is_read_only: true, // Set to read-only to prevent corruption
     };
     send_request(
         socket_path,
@@ -279,6 +280,18 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     )
     .await
     .context("Failed to configure machine")?;
+
+    // 4. Set Vsock (if configured)
+    if let Some(vsock_path) = &config.vsock_path {
+        let vsock = Vsock {
+            vsock_id: "root".to_string(),
+            guest_cid: 3,
+            uds_path: vsock_path.clone(),
+        };
+        send_request(socket_path, hyper::Method::PUT, "/vsock", Some(&vsock))
+            .await
+            .context("Failed to configure vsock")?;
+    }
 
     Ok(())
 }
@@ -321,7 +334,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(target_os = "linux")]
     async fn test_missing_kernel_image() {
         let config = VmConfig {
             kernel_path: "/non/existent/kernel".to_string(),
@@ -336,7 +348,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(target_os = "linux")]
     async fn test_missing_rootfs() {
         // Create dummy kernel file to pass first check
         let kernel_path = std::env::temp_dir().join("dummy_kernel");
