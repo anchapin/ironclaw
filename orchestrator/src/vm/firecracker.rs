@@ -177,7 +177,7 @@ async fn send_request<T: Serialize>(
     // though reusing it would be slightly faster.
     // Given the low number of requests, this is acceptable.
 
-    let stream = UnixStream::connect(socket_path)
+    let stream: UnixStream = UnixStream::connect(socket_path)
         .await
         .context("Failed to connect to firecracker socket")?;
     let io = TokioIo::new(stream);
@@ -208,7 +208,7 @@ async fn send_request<T: Serialize>(
         .body(req_body)
         .context("Failed to build request")?;
 
-    let res = sender
+    let res: hyper::Response<hyper::body::Incoming> = sender
         .send_request(req)
         .await
         .context("Failed to send request")?;
@@ -217,7 +217,7 @@ async fn send_request<T: Serialize>(
         Ok(())
     } else {
         let status = res.status();
-        let body_bytes = res.collect().await?.to_bytes();
+        let body_bytes: Bytes = res.collect().await?.to_bytes();
         let body_str = String::from_utf8_lossy(&body_bytes);
         Err(anyhow!("Firecracker API error: {} - {}", status, body_str))
     }
