@@ -28,6 +28,7 @@ mod tests {
     }
 
     /// Test that multiple VMs can be spawned with unique firewall chains
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_multiple_vms_isolation() {
         if skip_if_no_resources() {
@@ -67,6 +68,7 @@ mod tests {
     }
 
     /// Test that firewall rules are verified correctly
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_firewall_verification() {
         if skip_if_no_resources() {
@@ -95,6 +97,7 @@ mod tests {
     }
 
     /// Test that vsock paths are unique per VM
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_vsock_paths_are_unique() {
         if skip_if_no_resources() {
@@ -166,7 +169,8 @@ mod tests {
         assert!(config.memory_mb >= 128);
     }
 
-    /// Test that firewall manager properly handles VM IDs via hashing
+    /// Test that firewall manager properly sanitizes VM IDs
+    #[cfg(unix)]
     #[test]
     fn test_firewall_sanitizes_vm_ids() {
         use crate::vm::firewall::FirewallManager;
@@ -196,6 +200,7 @@ mod tests {
     }
 
     /// Test that vsock messages enforce size limits
+    #[cfg(unix)]
     #[test]
     #[cfg(unix)]
     fn test_vsock_message_size_limit() {
@@ -217,6 +222,7 @@ mod tests {
     }
 
     /// Test that vsock message types are properly serialized
+    #[cfg(unix)]
     #[test]
     #[cfg(unix)]
     fn test_vsock_message_serialization() {
@@ -271,6 +277,7 @@ mod tests {
     }
 
     /// Test edge case: VM with very long ID
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_vm_with_long_id() {
         if skip_if_no_resources() {
@@ -307,6 +314,7 @@ mod tests {
     }
 
     /// Test edge case: VM with special characters in ID
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_vm_with_special_chars() {
         if skip_if_no_resources() {
@@ -369,6 +377,7 @@ mod tests {
     }
 
     /// Property-based test: All firewall chain names must be valid
+    #[cfg(unix)]
     #[test]
     fn test_property_firewall_chains_valid() {
         use crate::vm::firewall::FirewallManager;
@@ -405,6 +414,7 @@ mod tests {
     }
 
     /// Test: Verify cleanup happens on VM destruction
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_vm_cleanup_on_destruction() {
         if skip_if_no_resources() {
@@ -446,6 +456,7 @@ mod tests {
     }
 
     /// Test: Multiple rapid VM spawns and destroys
+    #[cfg(unix)]
     #[tokio::test]
     async fn test_rapid_vm_lifecycle() {
         if skip_if_no_resources() {
