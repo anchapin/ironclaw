@@ -52,6 +52,13 @@ struct MachineConfiguration {
 }
 
 #[derive(Serialize)]
+struct VsockDevice {
+    vsock_id: String,
+    guest_cid: u32,
+    uds_path: String,
+}
+
+#[derive(Serialize)]
 struct Action {
     action_type: String,
 }
@@ -264,6 +271,27 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     )
     .await
     .context("Failed to configure machine")?;
+
+    // 4. Configure vsock (if enabled)
+    if let Some(vsock_path) = &config.vsock_path {
+        // Ensure vsock directory exists
+        if let Some(parent) = Path::new(vsock_path).parent() {
+            if !parent.exists() {
+                tokio::fs::create_dir_all(parent)
+                    .await
+                    .context("Failed to create vsock directory")?;
+            }
+        }
+
+        let vsock = VsockDevice {
+            vsock_id: "1".to_string(),
+            guest_cid: 3, // CID 3 is commonly used for the first guest
+            uds_path: vsock_path.clone(),
+        };
+        send_request(socket_path, hyper::Method::PUT, "/vsock", Some(&vsock))
+            .await
+            .context("Failed to configure vsock")?;
+    }
 
     Ok(())
 }
