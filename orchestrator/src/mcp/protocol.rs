@@ -611,4 +611,28 @@ mod tests {
         assert_eq!(err.code, -32600);
         assert!(err.message.contains("Missing jsonrpc field"));
     }
+
+    #[test]
+    fn test_error_display_format() {
+        let err = McpError::method_not_found("test_method");
+        let display_str = format!("{}", err);
+        assert!(display_str.contains("Error -32601"));
+        assert!(display_str.contains("test_method"));
+    }
+
+    #[test]
+    fn test_response_both_result_and_error_invalid() {
+        // This tests the catch-all case in into_result that should return internal error
+        let invalid = McpResponse {
+            jsonrpc: "2.0".to_string(),
+            id: 1,
+            result: Some(serde_json::json!({})),
+            error: Some(McpError::internal_error("conflict")),
+        };
+
+        let result = invalid.into_result();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.code, -32603);
+    }
 }
