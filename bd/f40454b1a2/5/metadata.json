@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "bdf40454b1a2",
+  "session_id": "eaa1ab91-d8c7-49bb-af22-e3fb1c01c355",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-11T12:58:39.952373179Z",
+  "branch": "remove-windows-from-ci",
+  "checkpoints_count": 2,
+  "files_touched": [
+    ".claude/skills/pr-swarmit/SKILL.md",
+    ".claude/skills/pr-swarmit/pr-swarmit.sh",
+    "orchestrator/Cargo.toml",
+    "orchestrator/src/vm/tests.rs"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 602907,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 9007232,
+    "output_tokens": 22170,
+    "api_call_count": 123
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-11T12:58:39.703449342Z",
+    "agent_lines": 0,
+    "human_added": 200,
+    "human_modified": 709,
+    "human_removed": 0,
+    "total_committed": 215,
+    "agent_percentage": 0
+  }
+}
