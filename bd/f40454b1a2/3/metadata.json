@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "bdf40454b1a2",
+  "session_id": "54b9bee4-481b-4e57-ba1b-3c7dbd6b714e",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-11T05:46:17.863406483Z",
+  "branch": "fix-pr59-review-feedback-10326662475900194946",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".claude/skills/README.md",
+    ".claude/skills/pr-swarmit.md",
+    ".claude/skills/pr-swarmit.sh"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "5433ceb8-afa9-4be6-886e-103bcb085bf4",
+  "token_usage": {
+    "input_tokens": 667278,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 3778173,
+    "output_tokens": 25520,
+    "api_call_count": 77
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-11T05:46:16.824603267Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 310,
+    "human_removed": 333,
+    "total_committed": 310,
+    "agent_percentage": 0
+  }
+}
