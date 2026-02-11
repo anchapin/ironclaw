@@ -6,7 +6,7 @@
 #[cfg(test)]
 mod tests {
     use crate::vm::config::VmConfig;
-    use crate::vm::{destroy_vm, spawn_vm_with_config, verify_network_isolation};
+    use crate::vm::{destroy_vm, spawn_vm, spawn_vm_with_config, verify_network_isolation};
     use std::fs::File;
     use std::io::Write;
 
