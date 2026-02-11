@@ -264,9 +264,7 @@ async fn send_request<T: Serialize>(
     _body: Option<&T>,
 ) -> Result<()> {
     // Windows support is limited/mocked for now as Firecracker is Linux-only
-    Err(anyhow!(
-        "Firecracker VM spawning is only supported on Unix systems"
-    ))
+    Err(anyhow!("Firecracker VM spawning is only supported on Unix systems"))
 }
 
 async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
