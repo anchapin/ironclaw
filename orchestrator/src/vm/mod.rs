@@ -19,9 +19,8 @@ pub mod seccomp;
 pub mod vsock;
 
 // Prototype module for feasibility testing
-// TODO: Add vm-prototype feature to Cargo.toml when prototype module is ready
-// #[cfg(feature = "vm-prototype")]
-// pub mod prototype;
+#[cfg(feature = "vm-prototype")]
+pub mod prototype;
 
     #[derive(Debug)]
     pub struct FirecrackerProcess {
@@ -97,7 +96,10 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::vm::config::VmConfig;
+
+#[cfg(unix)]
 use crate::vm::firecracker::{start_firecracker, stop_firecracker, FirecrackerProcess};
+#[cfg(unix)]
 use crate::vm::firewall::FirewallManager;
 #[cfg(unix)]
 use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
@@ -105,12 +107,23 @@ use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
 /// VM handle for managing lifecycle
 pub struct VmHandle {
     pub id: String,
+    #[cfg(unix)]
     process: Arc<Mutex<Option<FirecrackerProcess>>>,
     pub spawn_time_ms: f64,
     config: VmConfig,
+    #[cfg(unix)]
     firewall_manager: Option<FirewallManager>,
 }
 
+#[cfg(unix)]
+impl VmHandle {
+    /// Get the vsock socket path for this VM
+    pub fn vsock_path(&self) -> Option<&str> {
+        self.config.vsock_path.as_deref()
+    }
+}
+
+#[cfg(not(unix))]
 impl VmHandle {
     /// Get the vsock socket path for this VM
     pub fn vsock_path(&self) -> Option<&str> {
@@ -186,16 +199,6 @@ pub async fn spawn_vm(task_id: &str) -> Result<VmHandle> {
 pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<VmHandle> {
     tracing::info!("Spawning VM for task: {}", task_id);
 
-    #[cfg(not(unix))]
-    {
-        // Silence unused variable warning on non-unix
-        let _ = config;
-        tracing::warn!("VM spawning is not supported on non-Unix systems. Returning error.");
-        return Err(anyhow::anyhow!(
-            "VM spawning is only supported on Unix systems (requires KVM/Firecracker)"
-        ));
-    }
-
     #[cfg(unix)]
     {
         // Apply default seccomp filter if not specified (security best practice)
@@ -261,6 +264,16 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
             firewall_manager: Some(firewall_manager),
         })
     }
+
+    #[cfg(not(unix))]
+    {
+        tracing::warn!("VM spawning is only supported on Unix systems. Returning dummy handle.");
+        Ok(VmHandle {
+            id: task_id.to_string(),
+            spawn_time_ms: 0.0,
+            config: config.clone(),
+        })
+    }
 }
 
 /// Destroy a VM (ephemeral cleanup)
@@ -290,13 +303,21 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
 pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
     tracing::info!("Destroying VM: {}", handle.id);
 
-    // Take the process out of the Arc<Mutex>
-    let process = handle.process.lock().await.take();
+    #[cfg(unix)]
+    {
+        // Take the process out of the Arc<Mutex>
+        let process = handle.process.lock().await.take();
 
-    if let Some(proc) = process {
-        stop_firecracker(proc).await?;
-    } else {
-        tracing::warn!("VM {} already destroyed", handle.id);
+        if let Some(proc) = process {
+            stop_firecracker(proc).await?;
+        } else {
+            tracing::warn!("VM {} already destroyed", handle.id);
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        tracing::warn!("VM destruction is only supported on Unix systems.");
     }
 
     Ok(())
@@ -314,9 +335,18 @@ pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
 /// * `Ok(false)` - VM is not isolated
 /// * `Err(_)` - Failed to check isolation status
 pub fn verify_network_isolation(handle: &VmHandle) -> Result<bool> {
-    if let Some(ref firewall) = handle.firewall_manager {
-        firewall.verify_isolation()
-    } else {
+    #[cfg(unix)]
+    {
+        if let Some(ref firewall) = handle.firewall_manager {
+            firewall.verify_isolation()
+        } else {
+            Ok(false)
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        // On non-Unix systems, we assume isolation is not enforced/applicable in the same way
         Ok(false)
     }
 }
