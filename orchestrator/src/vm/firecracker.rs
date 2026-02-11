@@ -86,7 +86,9 @@ pub async fn start_firecracker(config: &VmConfig) -> Result<FirecrackerProcess> 
     if let Some(ref filter) = config.seccomp_filter {
         let path = format!("/tmp/firecracker-{:016x}.seccomp", hash);
         let json = filter.to_firecracker_json()?;
-        tokio::fs::write(&path, json).await.context("Failed to write seccomp filter")?;
+        tokio::fs::write(&path, json)
+            .await
+            .context("Failed to write seccomp filter")?;
         seccomp_path = Some(path);
     }
 
