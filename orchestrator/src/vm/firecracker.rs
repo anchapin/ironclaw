@@ -10,6 +10,7 @@ use hyper_util::rt::TokioIo;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+#[cfg(unix)]
 use tokio::net::UnixStream;
 use tokio::process::{Child, Command};
 use tracing::{debug, info};
@@ -55,6 +56,7 @@ struct Action {
 }
 
 /// Start a Firecracker VM process
+#[cfg(unix)]
 pub async fn start_firecracker(config: &VmConfig) -> Result<FirecrackerProcess> {
     let start_time = Instant::now();
     info!("Starting Firecracker VM: {}", config.vm_id);
@@ -140,6 +142,7 @@ pub async fn start_firecracker(config: &VmConfig) -> Result<FirecrackerProcess> 
 }
 
 /// Stop a Firecracker VM process
+#[cfg(unix)]
 pub async fn stop_firecracker(mut process: FirecrackerProcess) -> Result<()> {
     info!("Stopping Firecracker VM (PID: {})", process.pid);
 
@@ -163,6 +166,7 @@ pub async fn stop_firecracker(mut process: FirecrackerProcess) -> Result<()> {
 
 // Helper functions for API interaction
 
+#[cfg(unix)]
 async fn send_request<T: Serialize>(
     socket_path: &str,
     method: hyper::Method,
@@ -218,6 +222,7 @@ async fn send_request<T: Serialize>(
     }
 }
 
+#[cfg(unix)]
 async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     // 1. Set Boot Source
     let boot_source = BootSource {
@@ -266,6 +271,7 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     Ok(())
 }
 
+#[cfg(unix)]
 async fn start_instance(socket_path: &str) -> Result<()> {
     let action = Action {
         action_type: "InstanceStart".to_string(),
@@ -273,6 +279,17 @@ async fn start_instance(socket_path: &str) -> Result<()> {
     send_request(socket_path, hyper::Method::PUT, "/actions", Some(&action))
         .await
         .context("Failed to start instance")?;
+    Ok(())
+}
+
+// Dummy implementations for non-unix systems (Windows)
+#[cfg(not(unix))]
+pub async fn start_firecracker(_config: &VmConfig) -> anyhow::Result<FirecrackerProcess> {
+    anyhow::bail!("Firecracker is only supported on Unix systems")
+}
+
+#[cfg(not(unix))]
+pub async fn stop_firecracker(_process: FirecrackerProcess) -> anyhow::Result<()> {
     Ok(())
 }
 
