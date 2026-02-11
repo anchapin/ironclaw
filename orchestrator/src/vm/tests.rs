@@ -6,7 +6,7 @@
 #[cfg(test)]
 mod tests {
     use crate::vm::config::VmConfig;
-    use crate::vm::{destroy_vm, spawn_vm_with_config, verify_network_isolation};
+    use crate::vm::{destroy_vm, spawn_vm, spawn_vm_with_config, verify_network_isolation};
     use std::fs::File;
     use std::io::Write;
 
@@ -432,11 +432,6 @@ mod tests {
     /// Test: Multiple rapid VM spawns and destroys
     #[tokio::test]
     async fn test_rapid_vm_lifecycle() {
-        if !resources_available() {
-            println!("Skipping test_rapid_vm_lifecycle: Resources not available");
-            return;
-        }
-
         for i in 0..10 {
             let (kernel_path, rootfs_path) = create_test_resources().unwrap();
 
@@ -462,12 +457,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_vm_spawn_and_destroy() {
-        // This test requires actual Firecracker installation
-        // Skip in CI if not available
-        if !resources_available() {
-            return;
-        }
-
         // Ensure test assets exist
         let _ = std::fs::create_dir_all("/tmp/ironclaw-fc-test");
 
