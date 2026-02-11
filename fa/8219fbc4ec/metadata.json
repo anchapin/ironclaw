@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "fa8219fbc4ec",
+  "strategy": "manual-commit",
+  "branch": "remove-windows-from-ci",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "orchestrator/src/mcp/protocol.rs"
+  ],
+  "sessions": [
+    {
+      "metadata": "/fa/8219fbc4ec/0/metadata.json",
+      "transcript": "/fa/8219fbc4ec/0/full.jsonl",
+      "context": "/fa/8219fbc4ec/0/context.md",
+      "content_hash": "/fa/8219fbc4ec/0/content_hash.txt",
+      "prompt": "/fa/8219fbc4ec/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2526,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 971264,
+    "output_tokens": 2851,
+    "api_call_count": 9
+  }
+}

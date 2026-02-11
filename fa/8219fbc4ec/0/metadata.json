@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "fa8219fbc4ec",
+  "session_id": "005dee17-eda7-475f-9656-e4dd3ce1c130",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-11T16:03:12.353175564Z",
+  "branch": "remove-windows-from-ci",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "orchestrator/src/mcp/protocol.rs"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "5b49a312-0de7-4e2f-86cf-a70cfa6c5a51",
+  "checkpoint_transcript_start": 822,
+  "transcript_lines_at_start": 822,
+  "token_usage": {
+    "input_tokens": 2526,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 971264,
+    "output_tokens": 2851,
+    "api_call_count": 9
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-11T16:03:12.196750106Z",
+    "agent_lines": 0,
+    "human_added": 112,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 112,
+    "agent_percentage": 0
+  }
+}
