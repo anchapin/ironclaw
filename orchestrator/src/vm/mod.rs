@@ -30,6 +30,7 @@ use crate::vm::firewall::FirewallManager;
 use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
 
 /// VM handle for managing lifecycle
+#[derive(Debug)]
 pub struct VmHandle {
     pub id: String,
     process: Arc<Mutex<Option<FirecrackerProcess>>>,
@@ -208,7 +209,7 @@ pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
+mod spawn_tests {
     use super::*;
 
     #[tokio::test]
