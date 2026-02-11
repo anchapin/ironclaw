@@ -257,6 +257,7 @@ mod tests {
     use crate::mcp::protocol::McpError;
 
     // Helper to create a test request
+    #[cfg(unix)]
     fn create_test_request(id: u64, method: &str) -> McpRequest {
         McpRequest::new(id, method, None)
     }
