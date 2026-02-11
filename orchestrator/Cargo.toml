@@ -8,10 +8,6 @@ license = "MIT"
 repository = "https://github.com/your-username/ironclaw"
 readme = "../README.md"
 
-[features]
-default = []
-vm-prototype = []
-
 [dependencies]
 # Async runtime
 tokio = { version = "1.40", features = ["full"] }
@@ -43,9 +39,6 @@ rand = "0.8"
 # Time handling
 chrono = { version = "0.4", features = ["serde"] }
 
-[features]
-vm-prototype = []
-
 # Temporary directories (for rootfs builder)
 tempfile = "3.10"
 
@@ -57,6 +50,10 @@ proptest = "1.4"
 criterion = "0.8"
 assert_cmd = "2.0"
 predicates = "3.0"
+
+[features]
+default = []
+vm-prototype = []
 
 [lib]
 name = "ironclaw_orchestrator"

@@ -145,8 +145,8 @@ async fn spawn_vm() -> Result<()> {
     info!("⚡ Spawning JIT Micro-VM...");
 
     // Use the vm module to spawn a VM
-    // We use a random ID or a fixed CLI one for testing
-    let task_id = format!("cli-{}", uuid::Uuid::new_v4());
+    // We use process ID for a unique ID
+    let task_id = format!("cli-{}", std::process::id());
 
     let handle = vm::spawn_vm(&task_id).await?;
 
