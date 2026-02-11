@@ -31,23 +31,25 @@ mod tests {
         ))
     }
 
-    // Helper to check if firecracker is available
+    // Helper to check if firecracker is available AND resources exist
     fn firecracker_available() -> bool {
-        // Check PATH
-        if std::process::Command::new("firecracker")
+        // First check if firecracker binary exists
+        let has_binary = std::process::Command::new("firecracker")
             .arg("--version")
             .output()
             .is_ok()
-        {
-            return true;
+            || std::path::Path::new("/usr/local/bin/firecracker").exists()
+            || std::path::Path::new("/usr/bin/firecracker").exists();
+
+        if !has_binary {
+            return false;
         }
-        // Check standard locations
-        if std::path::Path::new("/usr/local/bin/firecracker").exists()
-            || std::path::Path::new("/usr/bin/firecracker").exists()
-        {
-            return true;
-        }
-        false
+
+        // Check if required resources exist
+        let kernel_exists = std::path::Path::new("./resources/vmlinux").exists();
+        let rootfs_exists = std::path::Path::new("./resources/rootfs.ext4").exists();
+
+        kernel_exists && rootfs_exists
     }
 
     /// Test that VM cannot be created with networking enabled
