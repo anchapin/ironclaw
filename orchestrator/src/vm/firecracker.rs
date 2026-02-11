@@ -10,6 +10,7 @@ use hyper_util::rt::TokioIo;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+#[cfg(unix)]
 use tokio::net::UnixStream;
 use tokio::process::{Child, Command};
 use tracing::{debug, info};
@@ -163,6 +164,7 @@ pub async fn stop_firecracker(mut process: FirecrackerProcess) -> Result<()> {
 
 // Helper functions for API interaction
 
+#[cfg(unix)]
 async fn send_request<T: Serialize>(
     socket_path: &str,
     method: hyper::Method,
@@ -218,6 +220,7 @@ async fn send_request<T: Serialize>(
     }
 }
 
+#[cfg(unix)]
 async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     // 1. Set Boot Source
     let boot_source = BootSource {
@@ -266,6 +269,7 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     Ok(())
 }
 
+#[cfg(unix)]
 async fn start_instance(socket_path: &str) -> Result<()> {
     let action = Action {
         action_type: "InstanceStart".to_string(),

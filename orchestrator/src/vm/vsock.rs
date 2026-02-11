@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
+#[cfg(unix)]
 use tokio::net::{UnixListener, UnixStream};
 
 /// vsock communication protocol version
@@ -24,6 +25,7 @@ pub const MAX_MESSAGE_SIZE: usize = 16 * 1024 * 1024;
 
 /// vsock host listener
 #[derive(Debug)]
+#[cfg(unix)]
 pub struct VsockHostListener {
     listener: UnixListener,
     vm_id: String,
@@ -31,6 +33,7 @@ pub struct VsockHostListener {
 
 /// vsock client (guest side)
 #[derive(Debug)]
+#[cfg(unix)]
 pub struct VsockClient {
     socket_path: PathBuf,
 }
@@ -123,6 +126,7 @@ impl VsockMessageHandler for DefaultHandler {
     }
 }
 
+#[cfg(unix)]
 impl VsockHostListener {
     /// Create a new vsock host listener
     ///
@@ -201,10 +205,12 @@ impl VsockHostListener {
 }
 
 /// vsock connection (bidirectional)
+#[cfg(unix)]
 pub struct VsockConnection {
     socket: UnixStream,
 }
 
+#[cfg(unix)]
 impl VsockConnection {
     /// Create a new vsock connection
     fn new(socket: UnixStream) -> Self {
@@ -310,6 +316,7 @@ impl VsockConnection {
     }
 }
 
+#[cfg(unix)]
 impl VsockClient {
     /// Create a new vsock client (guest side)
     ///
@@ -333,11 +340,13 @@ impl VsockClient {
 }
 
 /// vsock client connection (for sending messages from guest to host)
+#[cfg(unix)]
 pub struct VsockClientConnection {
     socket: UnixStream,
     next_id: u64,
 }
 
+#[cfg(unix)]
 impl VsockClientConnection {
     /// Create a new client connection
     fn new(socket: UnixStream) -> Self {
