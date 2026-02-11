@@ -432,6 +432,11 @@ mod tests {
     /// Test: Multiple rapid VM spawns and destroys
     #[tokio::test]
     async fn test_rapid_vm_lifecycle() {
+        if !resources_available() {
+            println!("Skipping test_rapid_vm_lifecycle: Resources not available");
+            return;
+        }
+
         for i in 0..10 {
             let (kernel_path, rootfs_path) = create_test_resources().unwrap();
 
@@ -459,7 +464,7 @@ mod tests {
     async fn test_vm_spawn_and_destroy() {
         // This test requires actual Firecracker installation
         // Skip in CI if not available
-        if !std::path::Path::new("/usr/local/bin/firecracker").exists() {
+        if !resources_available() {
             return;
         }
 
