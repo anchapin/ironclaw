@@ -1,0 +1,137 @@
+The enforce ratchet job is failing during the check rust ratchet step. This is what Github Copilot suggests: The job failed because the Rust coverage percentage (55.1%) is below the required ratchet threshold (66.4%) as defined in the workflow. To resolve this:
+
+1. Add tests to increase coverage for your Rust code, especially in orchestrator/ where coverage is measured.
+2. Focus on code paths that are currently not being exercised—look for logic, branches, and error handling without test coverage.
+3. Once your tests are added, rerun the workflow. When coverage reaches or exceeds 66.4%, the job will pass.
+
+Sample Rust test addition:
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_some_function() {
+        let result = some_function();
+        assert_eq!(result, expected_value);
+    }
+}
+```
+
+For reference, the coverage ratchet logic is enforced in .github/workflows/coverage-ratchet.yml, section “Check Rust ratchet”.
+
+You can view the failing job log here: https://github.com/anchapin/ironclaw/actions/runs/21911186439/job/63265881785?pr=90
+
+---
+
+The rust test coverage is still too low and now there's also a failure in the ubuntu-latest check formatting step. Here is the test coverage output: 
+Run CURRENT="56.6"
+🦀 Current: 56.6%, Ratchet: 66.4%, Target: 75.0%
+❌ Rust coverage 56.6% < ratchet 66.4%
+Error: Process completed with exit code 1.
+; here is the rust formatting output: Run cargo fmt --all -- --check
+Diff in /home/runner/work/ironclaw/ironclaw/orchestrator/src/vm/mod.rs:263:
+     #[test]
+     fn test_vm_handle_vsock_path_none() {
+         let mut config = VmConfig::default();
+-        config.vsock_path = None;  // Explicitly set to None
++        config.vsock_path = None; // Explicitly set to None
+         let handle = VmHandle {
+             id: "test-vm".to_string(),
+             process: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
+Error: Process completed with exit code 1.
+
+---
+
+The rust test coverage is up to 63% which is closer, but we need to get to about 67%: Run CURRENT="63.3"
+🦀 Current: 63.3%, Ratchet: 66.4%, Target: 75.0%
+❌ Rust coverage 63.3% < ratchet 66.4%
+Error: Process completed with exit code 1.
+; Additionally, now there is failures in the cargo test step of ubuntu-latest job:      Running `/home/runner/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name ironclaw --edition=2021 src/main.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --cfg 'feature="default"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "vm-prototype"))' -C metadata=5eab3a52d06abb43 -C extra-filename=-9d2902e6a2ccac3a --out-dir /home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps -L dependency=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps --extern REDACTED.rlib --extern async_trait=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libasync_trait-e8d8b304d19c1e9a.so --extern REDACTED.rlib --extern chrono=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libchrono-694905ff84fe2a2e.rlib --extern REDACTED.rlib --extern criterion=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libcriterion-4fc8b0e9f120accb.rlib --extern REDACTED.rlib --extern REDACTED.rlib --extern REDACTED.rlib --extern ironclaw_orchestrator=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libironclaw_orchestrator-4a96e2d21808d982.rlib --extern proptest=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libproptest-55cbda20206828bd.rlib --extern rand=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/librand-2512b7e8c85ef7e4.rlib --extern reqwest=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libreqwest-724ad3d2624ae6f7.rlib --extern serde=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libserde-f7555a02b8ad400b.rlib --extern REDACTED.rlib --extern thiserror=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libthiserror-ae3e20f2af8c6cde.rlib --extern tokio=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libtokio-f63f56fe86c9ac13.rlib --extern tracing=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libtracing-ac2f021816220962.rlib --extern tracing_subscriber=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libtracing_subscriber-7dd6ff1db3d46961.rlib --extern REDACTED.rlib -L native=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/build/alloca-9a789141b7a4053b/out`
+error[E0382]: use of moved value: `original.error`
+   --> src/mcp/protocol.rs:706:20
+    |
+705 |         assert_eq!(original.error.unwrap().code, deserialized.error.unwrap().code);
+    |                    -------------- -------- `original.error` moved due to this method call
+    |                    |
+    |                    help: consider calling `.as_ref()` or `.as_mut()` to borrow the type's contents
+706 |         assert_eq!(original.error.unwrap().message, deserialized.error.unwrap().message);
+    |                    ^^^^^^^^^^^^^^ value used here after move
+    |
+note: `std::option::Option::<T>::unwrap` takes ownership of the receiver `self`, which moves `original.error`
+   --> REDACTED.rs:1013:25
+    = note: move occurs because `original.error` has type `std::option::Option<protocol::McpError>`, which does not implement the `Copy` trait
+help: you can `clone` the value and consume it, but this might not be your desired behavior
+    |
+705 |         assert_eq!(original.error.clone().unwrap().code, deserialized.error.unwrap().code);
+    |                                  ++++++++
+
+error[E0382]: use of moved value: `deserialized.error`
+   --> src/mcp/protocol.rs:706:53
+    |
+705 |         assert_eq!(original.error.unwrap().code, deserialized.error.unwrap().code);
+    |                                                  ------------------ -------- `deserialized.error` moved due to this method call
+    |                                                  |
+    |                                                  help: consider calling `.as_ref()` or `.as_mut()` to borrow the type's contents
+706 |         assert_eq!(original.error.unwrap().message, deserialized.error.unwrap().message);
+    |                                                     ^^^^^^^^^^^^^^^^^^ value used here after move
+    |
+    = note: move occurs because `deserialized.error` has type `std::option::Option<protocol::McpError>`, which does not implement the `Copy` trait
+help: you can `clone` the value and consume it, but this might not be your desired behavior
+    |
+705 |         assert_eq!(original.error.unwrap().code, deserialized.error.clone().unwrap().code);
+    |                                                                    ++++++++
+
+For more information about this error, try `rustc --explain E0382`.
+error: could not compile `ironclaw-orchestrator` (lib test) due to 2 previous errors
+
+Caused by:
+  process didn't exit successfully: `/home/runner/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc --crate-name ironclaw_orchestrator --edition=2021 src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 --test --cfg 'feature="default"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "vm-prototype"))' -C metadata=1316fd5e5ea2544a -C extra-filename=-f0cecb7ec9368c9b --out-dir /home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps -L dependency=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps --extern REDACTED.rlib --extern async_trait=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libasync_trait-e8d8b304d19c1e9a.so --extern REDACTED.rlib --extern chrono=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libchrono-694905ff84fe2a2e.rlib --extern REDACTED.rlib --extern criterion=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libcriterion-4fc8b0e9f120accb.rlib --extern REDACTED.rlib --extern REDACTED.rlib --extern REDACTED.rlib --extern proptest=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libproptest-55cbda20206828bd.rlib --extern rand=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/librand-2512b7e8c85ef7e4.rlib --extern reqwest=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libreqwest-724ad3d2624ae6f7.rlib --extern serde=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libserde-f7555a02b8ad400b.rlib --extern REDACTED.rlib --extern thiserror=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libthiserror-ae3e20f2af8c6cde.rlib --extern tokio=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libtokio-f63f56fe86c9ac13.rlib --extern tracing=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libtracing-ac2f021816220962.rlib --extern tracing_subscriber=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/deps/libtracing_subscriber-7dd6ff1db3d46961.rlib --extern REDACTED.rlib -L native=/home/runner/work/ironclaw/ironclaw/orchestrator/target/debug/build/alloca-9a789141b7a4053b/out` (exit status: 1)
+Error: Process completed with exit code 101.
+
+---
+
+The test coverage got worse, what happened?: 
+Run CURRENT="56.9"
+🦀 Current: 56.9%, Ratchet: 66.4%, Target: 75.0%
+❌ Rust coverage 56.9% < ratchet 66.4%
+Error: Process completed with exit code 1.
+; ubuntu-latest has more rust formatting issues: Run cargo fmt --all -- --check
+Diff in /home/runner/work/ironclaw/ironclaw/orchestrator/src/mcp/protocol.rs:664:
+     #[test]
+     fn test_request_response_roundtrip() {
+         // Test that a request can be serialized and deserialized back
+-        let original = McpRequest::new(
+-            42,
+-            "tools/test",
+-            Some(serde_json::json!({"arg": "value"})),
+-        );
++        let original = McpRequest::new(42, "tools/test", Some(serde_json::json!({"arg": "value"})));
+ 
+         let json = serde_json::to_string(&original).unwrap();
+         let deserialized: McpRequest = serde_json::from_str(&json).unwrap();
+Diff in /home/runner/work/ironclaw/ironclaw/orchestrator/src/mcp/protocol.rs:702:
+         let deserialized: McpResponse = serde_json::from_str(&json).unwrap();
+ 
+         assert_eq!(original.id, deserialized.id);
+-        assert_eq!(original.error.as_ref().unwrap().code, deserialized.error.as_ref().unwrap().code);
+-        assert_eq!(original.error.as_ref().unwrap().message, deserialized.error.as_ref().unwrap().message);
++        assert_eq!(
++            original.error.as_ref().unwrap().code,
++            deserialized.error.as_ref().unwrap().code
++        );
++        assert_eq!(
++            original.error.as_ref().unwrap().message,
++            deserialized.error.as_ref().unwrap().message
++        );
+     }
+ 
+     #[test]
+Error: Process completed with exit code 1.
+
+---
+
+The only remaining issue is the rust ratchet step. At this point just adjust the target to 55% so that I can merge this PR. Here's the output: Run CURRENT="56.8"
+🦀 Current: 56.8%, Ratchet: 66.4%, Target: 75.0%
+❌ Rust coverage 56.8% < ratchet 66.4%
+Error: Process completed with exit code 1.
