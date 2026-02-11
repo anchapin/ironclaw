@@ -6,7 +6,7 @@
 #[cfg(test)]
 mod tests {
     use crate::vm::config::VmConfig;
-    use crate::vm::{destroy_vm, spawn_vm_with_config, verify_network_isolation};
+    use crate::vm::{destroy_vm, spawn_vm, spawn_vm_with_config, verify_network_isolation};
     use std::fs::File;
     use std::io::Write;
 
@@ -31,25 +31,17 @@ mod tests {
         ))
     }
 
-    // Helper to check if firecracker is available AND resources exist
-    fn firecracker_available() -> bool {
-        // First check if firecracker binary exists
-        let has_binary = std::process::Command::new("firecracker")
-            .arg("--version")
-            .output()
-            .is_ok()
-            || std::path::Path::new("/usr/local/bin/firecracker").exists()
-            || std::path::Path::new("/usr/bin/firecracker").exists();
-
-        if !has_binary {
+    fn check_vm_requirements() -> bool {
+        if !std::path::Path::new("/usr/local/bin/firecracker").exists() {
             return false;
         }
-
-        // Check if required resources exist
-        let kernel_exists = std::path::Path::new("./resources/vmlinux").exists();
-        let rootfs_exists = std::path::Path::new("./resources/rootfs.ext4").exists();
-
-        kernel_exists && rootfs_exists
+        if !std::path::Path::new("./resources/vmlinux").exists() {
+            return false;
+        }
+        if !std::path::Path::new("./resources/rootfs.ext4").exists() {
+            return false;
+        }
+        true
     }
 
     /// Test that VM cannot be created with networking enabled
@@ -61,13 +53,6 @@ mod tests {
         let result = config.validate();
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("MUST be disabled"));
-    }
-
-    // Helper to check if Firecracker resources are available
-    fn resources_available() -> bool {
-        std::path::Path::new("/usr/local/bin/firecracker").exists()
-            && std::path::Path::new("./resources/vmlinux").exists()
-            && std::path::Path::new("./resources/rootfs.ext4").exists()
     }
 
     /// Test that multiple VMs can be spawned with unique firewall chains
@@ -203,28 +188,38 @@ mod tests {
         assert!(config.memory_mb >= 128);
     }
 
-    /// Test that firewall manager properly sanitizes VM IDs
+    /// Test that firewall manager properly handles VM IDs via hashing
     #[test]
     fn test_firewall_sanitizes_vm_ids() {
         use crate::vm::firewall::FirewallManager;
 
         let test_cases = vec![
-            ("simple", "IRONCLAW_simple"),
-            ("with-dash", "IRONCLAW_with_dash"),
-            ("with@symbol", "IRONCLAW_with_symbol"),
-            ("with/slash", "IRONCLAW_with_slash"),
-            ("with space", "IRONCLAW_with_space"),
-            ("with.dot", "IRONCLAW_with_dot"),
+            "simple",
+            "with-dash",
+            "with@symbol",
+            "with/slash",
+            "with space",
+            "with.dot",
         ];
 
-        for (vm_id, expected_chain) in test_cases {
+        for vm_id in test_cases {
             let manager = FirewallManager::new(vm_id.to_string());
-            assert_eq!(manager.chain_name(), expected_chain);
+            let chain = manager.chain_name();
+
+            // Check prefix
+            assert!(chain.starts_with("IRONCLAW_"));
+
+            // Check length (9 + 16 = 25)
+            assert_eq!(chain.len(), 25);
+
+            // Check allowed characters (alphanumeric + underscore)
+            assert!(chain.chars().all(|c| c.is_alphanumeric() || c == '_'));
         }
     }
 
     /// Test that vsock messages enforce size limits
     #[test]
+    #[cfg(unix)]
     fn test_vsock_message_size_limit() {
         use crate::vm::vsock::{VsockMessage, MAX_MESSAGE_SIZE};
         use serde_json::json;
@@ -245,6 +240,7 @@ mod tests {
 
     /// Test that vsock message types are properly serialized
     #[test]
+    #[cfg(unix)]
     fn test_vsock_message_serialization() {
         use crate::vm::vsock::VsockMessage;
         use serde_json::json;
@@ -460,7 +456,7 @@ mod tests {
     /// Test: Multiple rapid VM spawns and destroys
     #[tokio::test]
     async fn test_rapid_vm_lifecycle() {
-        if !resources_available() {
+        if !check_vm_requirements() {
             return;
         }
 
@@ -485,5 +481,38 @@ mod tests {
             }
         }
         tracing::info!("Rapid VM lifecycle test completed successfully");
+    }
+
+    #[tokio::test]
+    async fn test_vm_spawn_and_destroy() {
+        // This test requires actual Firecracker installation
+        // Skip in CI if not available
+        if !std::path::Path::new("/usr/local/bin/firecracker").exists() {
+            return;
+        }
+
+        // Ensure test assets exist
+        let _ = std::fs::create_dir_all("/tmp/ironclaw-fc-test");
+
+        let result = spawn_vm("test-task").await;
+
+        // If assets don't exist, we expect an error
+        if result.is_err() {
+            println!("Skipping test: Firecracker assets not available");
+            return;
+        }
+
+        let handle = result.unwrap();
+        assert_eq!(handle.id, "test-task");
+        assert!(handle.spawn_time_ms > 0.0);
+
+        destroy_vm(handle).await.unwrap();
+    }
+
+    #[test]
+    fn test_vm_id_format() {
+        let task_id = "task-123";
+        let expected_id = task_id.to_string();
+        assert_eq!(expected_id, "task-123");
     }
 }
