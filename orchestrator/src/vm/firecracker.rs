@@ -21,6 +21,7 @@ use crate::vm::config::VmConfig;
 pub struct FirecrackerProcess {
     pub pid: u32,
     pub socket_path: String,
+    pub seccomp_path: String,
     pub child_process: Option<Child>,
     pub spawn_time_ms: f64,
 }
@@ -140,6 +141,7 @@ pub async fn start_firecracker(config: &VmConfig) -> Result<FirecrackerProcess> 
 }
 
 /// Stop a Firecracker VM process
+#[cfg(unix)]
 pub async fn stop_firecracker(mut process: FirecrackerProcess) -> Result<()> {
     info!("Stopping Firecracker VM (PID: {})", process.pid);
 
@@ -158,11 +160,17 @@ pub async fn stop_firecracker(mut process: FirecrackerProcess) -> Result<()> {
         let _ = tokio::fs::remove_file(&process.socket_path).await;
     }
 
+    // Cleanup seccomp filter
+    if Path::new(&process.seccomp_path).exists() {
+        let _ = tokio::fs::remove_file(&process.seccomp_path).await;
+    }
+
     Ok(())
 }
 
 // Helper functions for API interaction
 
+#[cfg(unix)]
 async fn send_request<T: Serialize>(
     socket_path: &str,
     method: hyper::Method,
@@ -173,13 +181,14 @@ async fn send_request<T: Serialize>(
     // though reusing it would be slightly faster.
     // Given the low number of requests, this is acceptable.
 
-    let stream = UnixStream::connect(socket_path)
+    let stream: UnixStream = UnixStream::connect(socket_path)
         .await
         .context("Failed to connect to firecracker socket")?;
     let io = TokioIo::new(stream);
-    let (mut sender, conn) = hyper::client::conn::http1::handshake(io)
-        .await
-        .context("Handshake failed")?;
+    let (mut sender, conn): (HttpSendRequest, HttpConnection) =
+        hyper::client::conn::http1::handshake(io)
+            .await
+            .context("Handshake failed")?;
 
     tokio::task::spawn(async move {
         if let Err(err) = conn.await {
@@ -203,7 +212,7 @@ async fn send_request<T: Serialize>(
         .body(req_body)
         .context("Failed to build request")?;
 
-    let res = sender
+    let res: hyper::Response<hyper::body::Incoming> = sender
         .send_request(req)
         .await
         .context("Failed to send request")?;
@@ -212,12 +221,13 @@ async fn send_request<T: Serialize>(
         Ok(())
     } else {
         let status = res.status();
-        let body_bytes = res.collect().await?.to_bytes();
+        let body_bytes: Bytes = res.collect().await?.to_bytes();
         let body_str = String::from_utf8_lossy(&body_bytes);
         Err(anyhow!("Firecracker API error: {} - {}", status, body_str))
     }
 }
 
+#[cfg(unix)]
 async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     // 1. Set Boot Source
     let boot_source = BootSource {
@@ -266,6 +276,7 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     Ok(())
 }
 
+#[cfg(unix)]
 async fn start_instance(socket_path: &str) -> Result<()> {
     let action = Action {
         action_type: "InstanceStart".to_string(),
@@ -273,6 +284,17 @@ async fn start_instance(socket_path: &str) -> Result<()> {
     send_request(socket_path, hyper::Method::PUT, "/actions", Some(&action))
         .await
         .context("Failed to start instance")?;
+    Ok(())
+}
+
+// Dummy implementations for non-unix systems (Windows)
+#[cfg(not(unix))]
+pub async fn start_firecracker(_config: &VmConfig) -> anyhow::Result<FirecrackerProcess> {
+    anyhow::bail!("Firecracker is only supported on Unix systems")
+}
+
+#[cfg(not(unix))]
+pub async fn stop_firecracker(_process: FirecrackerProcess) -> anyhow::Result<()> {
     Ok(())
 }
 
