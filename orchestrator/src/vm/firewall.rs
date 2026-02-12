@@ -10,7 +10,8 @@
 // - Rules are automatically cleaned up on VM destruction
 
 use anyhow::{Context, Result};
-use std::process::Command;
+use std::process::Command as SyncCommand;
+use tokio::process::Command as AsyncCommand;
 use tracing::{info, warn};
 
 /// Firewall manager for VM network isolation
@@ -28,12 +29,9 @@ impl FirewallManager {
     pub fn new(vm_id: String) -> Self {
         // Create a unique chain name for this VM
         // Sanitize vm_id to only contain alphanumeric characters
-        // and truncate to ensure chain name <= 28 chars (kernel limit)
-        // IRONCLAW_ is 9 chars, so we have 19 chars for the ID
         let sanitized_id: String = vm_id
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
-            .take(19)
+            .map(|c| if c.is_alphanumeric() { c } else { '_' })
             .collect();
 
         let chain_name = format!("IRONCLAW_{}", sanitized_id);
@@ -58,7 +56,7 @@ impl FirewallManager {
     /// This function requires root privileges. If running without root,
     /// it will return an error. In production, the orchestrator should
     /// run with appropriate capabilities.
-    pub fn configure_isolation(&self) -> Result<()> {
+    pub async fn configure_isolation(&self) -> Result<()> {
         info!("Configuring firewall isolation for VM: {}", self.vm_id);
 
         // Check if iptables is available
@@ -72,10 +70,18 @@ impl FirewallManager {
         }
 
         // Create a new chain for this VM
-        self.create_chain()?;
+        self.create_chain().await?;
 
         // Add rules to drop all traffic
-        self.add_drop_rules()?;
+        self.add_drop_rules().await?;
+
+        // WARN: The chain is created but not linked to INPUT/OUTPUT/FORWARD.
+        // This is intentional because we don't know the network interface name here.
+        // It serves as a placeholder for when specific interfaces are assigned.
+        warn!(
+            "Firewall chain {} created but not linked to main tables. Rules are currently inactive until an interface is explicitly blocked.",
+            self.chain_name
+        );
 
         info!(
             "Firewall isolation configured for VM: {} (chain: {})",
@@ -85,17 +91,83 @@ impl FirewallManager {
         Ok(())
     }
 
-    /// Remove firewall rules and cleanup
+    /// Remove firewall rules and cleanup (Async)
     ///
     /// This should be called when the VM is destroyed.
-    pub fn cleanup(&self) -> Result<()> {
+    pub async fn cleanup_async(&self) -> Result<()> {
         info!("Cleaning up firewall rules for VM: {}", self.vm_id);
 
+        // Remove jump rules from INPUT and FORWARD chains
+        // We loop until all references are removed to ensure we can delete the chain
+        loop {
+            let status = AsyncCommand::new("iptables")
+                .args(["-D", "INPUT", "-j", &self.chain_name])
+                .output()
+                .await
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+            if !status {
+                break;
+            }
+        }
+
+        loop {
+            let status = AsyncCommand::new("iptables")
+                .args(["-D", "FORWARD", "-j", &self.chain_name])
+                .output()
+                .await
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+            if !status {
+                break;
+            }
+        }
+
         // Flush and delete the chain
-        self.flush_chain()?;
-        self.delete_chain()?;
+        self.flush_chain().await?;
+        self.delete_chain().await?;
 
         info!("Firewall rules cleaned up for VM: {}", self.vm_id);
+
+        Ok(())
+    }
+
+    /// Remove firewall rules and cleanup (Sync)
+    ///
+    /// This is used by Drop trait.
+    pub fn cleanup(&self) -> Result<()> {
+        // Remove jump rules (Sync)
+        loop {
+            let status = SyncCommand::new("iptables")
+                .args(["-D", "INPUT", "-j", &self.chain_name])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+            if !status {
+                break;
+            }
+        }
+
+        loop {
+            let status = SyncCommand::new("iptables")
+                .args(["-D", "FORWARD", "-j", &self.chain_name])
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false);
+            if !status {
+                break;
+            }
+        }
+
+        // Flush chain (Sync)
+        let _ = SyncCommand::new("iptables")
+            .args(["-F", &self.chain_name])
+            .output();
+
+        // Delete chain (Sync)
+        let _ = SyncCommand::new("iptables")
+            .args(["-X", &self.chain_name])
+            .output();
 
         Ok(())
     }
@@ -107,10 +179,11 @@ impl FirewallManager {
     /// * `Ok(true)` - Rules are active and configured correctly
     /// * `Ok(false)` - Rules are not active
     /// * `Err(_)` - Failed to check rules
-    pub fn verify_isolation(&self) -> Result<bool> {
-        let output = Command::new("iptables")
+    pub async fn verify_isolation(&self) -> Result<bool> {
+        let output = AsyncCommand::new("iptables")
             .args(["-L", &self.chain_name])
-            .output();
+            .output()
+            .await;
 
         // If iptables command fails (not installed, can't execute, etc.),
         // treat as if rules are not active (graceful degradation)
@@ -136,12 +209,13 @@ impl FirewallManager {
     }
 
     /// Create a new iptables chain
-    fn create_chain(&self) -> Result<()> {
+    async fn create_chain(&self) -> Result<()> {
         info!("Creating iptables chain: {}", self.chain_name);
 
-        let output = Command::new("iptables")
+        let output = AsyncCommand::new("iptables")
             .args(["-N", &self.chain_name])
             .output()
+            .await
             .context("Failed to create iptables chain")?;
 
         if !output.status.success() {
@@ -153,13 +227,14 @@ impl FirewallManager {
     }
 
     /// Add DROP rules to the chain
-    fn add_drop_rules(&self) -> Result<()> {
+    async fn add_drop_rules(&self) -> Result<()> {
         info!("Adding DROP rules to chain: {}", self.chain_name);
 
         // Drop all incoming traffic
-        let output = Command::new("iptables")
+        let output = AsyncCommand::new("iptables")
             .args(["-A", &self.chain_name, "-j", "DROP"])
             .output()
+            .await
             .context("Failed to add DROP rule for incoming traffic")?;
 
         if !output.status.success() {
@@ -171,12 +246,13 @@ impl FirewallManager {
     }
 
     /// Flush all rules in the chain
-    fn flush_chain(&self) -> Result<()> {
+    async fn flush_chain(&self) -> Result<()> {
         info!("Flushing iptables chain: {}", self.chain_name);
 
-        let output = Command::new("iptables")
+        let output = AsyncCommand::new("iptables")
             .args(["-F", &self.chain_name])
             .output()
+            .await
             .context("Failed to flush iptables chain")?;
 
         // Ignore errors if chain doesn't exist
@@ -188,12 +264,13 @@ impl FirewallManager {
     }
 
     /// Delete the chain
-    fn delete_chain(&self) -> Result<()> {
+    async fn delete_chain(&self) -> Result<()> {
         info!("Deleting iptables chain: {}", self.chain_name);
 
-        let output = Command::new("iptables")
+        let output = AsyncCommand::new("iptables")
             .args(["-X", &self.chain_name])
             .output()
+            .await
             .context("Failed to delete iptables chain")?;
 
         // Ignore errors if chain doesn't exist
@@ -209,7 +286,7 @@ impl FirewallManager {
 
     /// Check if iptables is installed and accessible
     fn check_iptables_installed() -> bool {
-        let output = Command::new("iptables").arg("--version").output();
+        let output = SyncCommand::new("iptables").arg("--version").output();
 
         match output {
             Ok(o) => o.status.success(),
@@ -221,7 +298,7 @@ impl FirewallManager {
     fn is_root() -> bool {
         use std::process::Output;
 
-        let output: Output = Command::new("id")
+        let output: Output = SyncCommand::new("id")
             .arg("-u")
             .output()
             .unwrap_or_else(|_| Output {
@@ -240,23 +317,36 @@ impl FirewallManager {
 
     /// Block specific network interface (e.g., tap0 for VM)
     ///
-    /// This is an additional layer of isolation that can be used
-    /// to block traffic on a specific network interface.
-    pub fn block_interface(&self, interface: &str) -> Result<()> {
+    /// This links the isolation chain to the system INPUT and FORWARD chains
+    /// for the specified interface, ensuring traffic is blocked.
+    pub async fn block_interface(&self, interface: &str) -> Result<()> {
         info!(
             "Blocking network interface: {} for VM: {}",
             interface, self.vm_id
         );
 
-        // Drop all traffic on the specified interface
-        let output = Command::new("iptables")
-            .args(["-A", &self.chain_name, "-i", interface, "-j", "DROP"])
+        // Link INPUT chain to our isolation chain for this interface
+        let output = AsyncCommand::new("iptables")
+            .args(["-I", "INPUT", "-i", interface, "-j", &self.chain_name])
             .output()
-            .context("Failed to block interface")?;
+            .await
+            .context("Failed to link INPUT chain")?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Failed to block interface: {}", stderr);
+            anyhow::bail!("Failed to link INPUT chain: {}", stderr);
+        }
+
+        // Link FORWARD chain to our isolation chain for this interface
+        let output = AsyncCommand::new("iptables")
+            .args(["-I", "FORWARD", "-i", interface, "-j", &self.chain_name])
+            .output()
+            .await
+            .context("Failed to link FORWARD chain")?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Failed to link FORWARD chain: {}", stderr);
         }
 
         Ok(())

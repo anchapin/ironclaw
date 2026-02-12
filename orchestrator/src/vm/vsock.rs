@@ -17,6 +17,7 @@ use std::path::PathBuf;
 use tokio::fs;
 #[cfg(unix)]
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
+#[cfg(unix)]
 use tokio::net::{UnixListener, UnixStream};
 
 /// vsock communication protocol version
