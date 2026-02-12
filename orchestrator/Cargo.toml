@@ -39,8 +39,11 @@ rand = "0.8"
 # Time handling
 chrono = { version = "0.4", features = ["serde"] }
 
-# Temporary directories (for rootfs builder)
-tempfile = "3.10"
+# Firecracker VM (Phase 2)
+bytes = "1.0"
+hyper = { version = "1.0", features = ["full"] }
+http-body-util = "0.1"
+hyper-util = { version = "0.1", features = ["full"] }
 
 [dev-dependencies]
 # Property-based testing
@@ -48,11 +51,8 @@ proptest = "1.4"
 
 # Testing utilities
 criterion = "0.8"
-assert_cmd = "2.0"
-predicates = "3.0"
 
 [features]
-default = []
 vm-prototype = []
 
 [lib]

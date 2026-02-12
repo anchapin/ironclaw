@@ -9,7 +9,6 @@
 
 pub mod config;
 pub mod firecracker;
-pub mod firewall;
 pub mod seccomp;
 
 use anyhow::Result;
@@ -19,16 +18,12 @@ use tokio::sync::Mutex;
 
 use crate::vm::config::VmConfig;
 use crate::vm::firecracker::{start_firecracker, stop_firecracker, FirecrackerProcess};
-use crate::vm::firewall::FirewallManager;
 use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
 
 /// VM handle for managing lifecycle
 pub struct VmHandle {
     pub id: String,
-    #[allow(dead_code)] // Field is unused on Windows but required on Linux
     process: Arc<Mutex<Option<FirecrackerProcess>>>,
-    #[allow(dead_code)]
-    pub firewall_manager: Option<FirewallManager>,
     pub spawn_time_ms: f64,
 }
 
@@ -53,7 +48,7 @@ impl VmHandle {
 
         // Ensure the agent script exists
         if !std::path::Path::new("agent/loop.py").exists() {
-             anyhow::bail!("Agent script not found at agent/loop.py");
+            anyhow::bail!("Agent script not found at agent/loop.py");
         }
 
         let output = Command::new("python3")
@@ -63,9 +58,9 @@ impl VmHandle {
             .await?;
 
         if !output.status.success() {
-             let error = String::from_utf8_lossy(&output.stderr);
-             tracing::error!("Agent execution failed: {}", error);
-             anyhow::bail!("Agent execution failed: {}", error);
+            let error = String::from_utf8_lossy(&output.stderr);
+            tracing::error!("Agent execution failed: {}", error);
+            anyhow::bail!("Agent execution failed: {}", error);
         }
 
         let result = String::from_utf8_lossy(&output.stdout).to_string();
@@ -156,14 +151,6 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
         config.clone()
     };
 
-    // Configure firewall
-    let firewall_manager = FirewallManager::new(task_id.to_string());
-    #[cfg(target_os = "linux")]
-    {
-        // Enforce isolation before spawning VM
-        firewall_manager.configure_isolation()?;
-    }
-
     // Start Firecracker VM
     let process = start_firecracker(&config_with_seccomp).await?;
 
@@ -172,7 +159,6 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
     Ok(VmHandle {
         id: task_id.to_string(),
         process: Arc::new(Mutex::new(Some(process))),
-        firewall_manager: Some(firewall_manager),
         spawn_time_ms: spawn_time,
     })
 }
@@ -203,14 +189,6 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
 /// ```
 pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
     tracing::info!("Destroying VM: {}", handle.id);
-
-    // Cleanup firewall rules
-    if let Some(fw) = &handle.firewall_manager {
-        if let Err(e) = fw.cleanup() {
-            tracing::error!("Failed to cleanup firewall for VM {}: {}", handle.id, e);
-        }
-        let _: Result<()> = Ok(()); // Explicit type to help compiler on older Rust
-    }
 
     // Take the process out of the Arc<Mutex>
     let process = handle.process.lock().await.take();
