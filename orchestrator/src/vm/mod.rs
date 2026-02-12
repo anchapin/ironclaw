@@ -166,6 +166,7 @@ pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
         if let Err(e) = fw.cleanup() {
             tracing::error!("Failed to cleanup firewall for VM {}: {}", handle.id, e);
         }
+        let _: Result<()> = Ok(()); // Explicit type to help compiler on older Rust
     }
 
     // Take the process out of the Arc<Mutex>
