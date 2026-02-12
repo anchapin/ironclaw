@@ -10,6 +10,7 @@
 pub mod firecracker;
 pub mod config;
 pub mod seccomp;
+pub mod firewall;
 
 // Prototype module for feasibility testing
 #[cfg(feature = "vm-prototype")]
@@ -21,6 +22,7 @@ use tokio::sync::Mutex;
 
 use crate::vm::config::VmConfig;
 use crate::vm::firecracker::{start_firecracker, stop_firecracker, FirecrackerProcess};
+use crate::vm::firewall::FirewallManager;
 use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
 
 /// VM handle for managing lifecycle
@@ -28,6 +30,8 @@ pub struct VmHandle {
     pub id: String,
     #[allow(dead_code)] // Field is unused on Windows but required on Linux
     process: Arc<Mutex<Option<FirecrackerProcess>>>,
+    #[allow(dead_code)]
+    pub firewall_manager: Option<FirewallManager>,
     pub spawn_time_ms: f64,
 }
 
@@ -109,6 +113,14 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
         config.clone()
     };
 
+    // Configure firewall
+    let firewall_manager = FirewallManager::new(task_id.to_string());
+    #[cfg(target_os = "linux")]
+    {
+        // Enforce isolation before spawning VM
+        firewall_manager.configure_isolation()?;
+    }
+
     // Start Firecracker VM
     let process = start_firecracker(&config_with_seccomp).await?;
 
@@ -117,6 +129,7 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
     Ok(VmHandle {
         id: task_id.to_string(),
         process: Arc::new(Mutex::new(Some(process))),
+        firewall_manager: Some(firewall_manager),
         spawn_time_ms: spawn_time,
     })
 }
@@ -147,6 +160,13 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
 /// ```
 pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
     tracing::info!("Destroying VM: {}", handle.id);
+
+    // Cleanup firewall rules
+    if let Some(fw) = &handle.firewall_manager {
+        if let Err(e) = fw.cleanup() {
+            tracing::error!("Failed to cleanup firewall for VM {}: {}", handle.id, e);
+        }
+    }
 
     // Take the process out of the Arc<Mutex>
     let process = handle.process.lock().await.take();

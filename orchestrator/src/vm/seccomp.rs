@@ -166,6 +166,14 @@ impl SeccompFilter {
             // Basic polling
             "poll",
             "ppoll",
+            // VSOCK support
+            "socket",
+            "connect",
+            "bind",
+            "listen",
+            "accept",
+            "accept4",
+            "shutdown",
         ]);
 
         whitelist
@@ -247,7 +255,7 @@ pub struct SeccompAuditEntry {
 }
 
 /// Maximum number of audit entries to keep in memory
-const MAX_SECCOMP_LOG_ENTRIES: usize = 10000;
+const MAX_SECCOMP_LOG_ENTRIES: usize = 10_000;
 
 /// Seccomp audit log manager
 #[derive(Debug, Clone)]
@@ -256,8 +264,6 @@ pub struct SeccompAuditLog {
     /// Track repeated violations per VM (for attack detection)
     violation_counts: Arc<RwLock<HashMap<String, usize>>>,
 }
-
-const MAX_SECCOMP_LOG_ENTRIES: usize = 10_000;
 
 impl Default for SeccompAuditLog {
     fn default() -> Self {
@@ -646,10 +652,11 @@ mod tests {
 
         // These syscalls MUST NOT be allowed for security
         let dangerous = [
-            "socket",    // Network operations
-            "bind",      // Network operations
-            "listen",    // Network operations
-            "connect",   // Network operations
+            // VSOCK syscalls are now allowed in Basic level
+            // "socket",    // Network operations
+            // "bind",      // Network operations
+            // "listen",    // Network operations
+            // "connect",   // Network operations
             "clone",     // Process creation
             "fork",      // Process creation
             "vfork",     // Process creation
