@@ -17,6 +17,7 @@ use tracing::{info, warn};
 pub struct FirewallManager {
     vm_id: String,
     chain_name: String,
+    interface: Option<String>,
 }
 
 impl FirewallManager {
@@ -38,7 +39,14 @@ impl FirewallManager {
 
         let chain_name = format!("IRONCLAW_{}", sanitized_id);
 
-        Self { vm_id, chain_name }
+        Self { vm_id, chain_name, interface: None }
+    }
+
+    /// Set the network interface for the VM (e.g. "tap0")
+    /// This is required to link the firewall chain to the system traffic.
+    pub fn with_interface(mut self, interface: String) -> Self {
+        self.interface = Some(interface);
+        self
     }
 
     /// Configure firewall rules to isolate the VM
@@ -47,6 +55,7 @@ impl FirewallManager {
     /// 1. Block all inbound traffic
     /// 2. Block all outbound traffic
     /// 3. Allow only vsock communication (which doesn't go through iptables)
+    /// 4. Link the chain to the system FORWARD chain (if interface is set)
     ///
     /// # Returns
     ///
@@ -77,6 +86,16 @@ impl FirewallManager {
         // Add rules to drop all traffic
         self.add_drop_rules()?;
 
+        // Link the chain if interface is specified
+        if let Some(ref iface) = self.interface {
+            self.link_chain(iface)?;
+        } else {
+            warn!(
+                "No interface specified for VM {}. Firewall chain created but NOT linked to system traffic. Isolation verification may fail.",
+                self.vm_id
+            );
+        }
+
         info!(
             "Firewall isolation configured for VM: {} (chain: {})",
             self.vm_id, self.chain_name
@@ -91,12 +110,50 @@ impl FirewallManager {
     pub fn cleanup(&self) -> Result<()> {
         info!("Cleaning up firewall rules for VM: {}", self.vm_id);
 
+        // Unlink chain first (iptables -X fails if chain is in use)
+        if let Some(ref iface) = self.interface {
+            // Ignore errors during cleanup as rules might be gone
+            let _ = self.unlink_chain(iface);
+        }
+
         // Flush and delete the chain
         self.flush_chain()?;
         self.delete_chain()?;
 
         info!("Firewall rules cleaned up for VM: {}", self.vm_id);
 
+        Ok(())
+    }
+
+    /// Link the isolation chain to the system FORWARD chain
+    fn link_chain(&self, interface: &str) -> Result<()> {
+        info!("Linking chain {} to FORWARD for interface {}", self.chain_name, interface);
+
+        // iptables -I FORWARD -i <interface> -j <chain_name>
+        // Using -I (Insert) to ensure it runs before other rules
+        let output = Command::new("iptables")
+            .args(["-I", "FORWARD", "-i", interface, "-j", &self.chain_name])
+            .output()
+            .context("Failed to link chain to FORWARD")?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Failed to link chain: {}", stderr);
+        }
+
+        Ok(())
+    }
+
+    /// Unlink the isolation chain
+    fn unlink_chain(&self, interface: &str) -> Result<()> {
+        info!("Unlinking chain {} from FORWARD", self.chain_name);
+
+        let _ = Command::new("iptables")
+            .args(["-D", "FORWARD", "-i", interface, "-j", &self.chain_name])
+            .output()
+            .context("Failed to unlink chain")?;
+
+        // Ignore failure if rule doesn't exist
         Ok(())
     }
 
@@ -354,5 +411,33 @@ mod tests {
             assert!(chain.chars().all(|c| c.is_alphanumeric() || c == '_'));
             assert!(chain.starts_with("IRONCLAW_"));
         }
+    }
+
+    #[test]
+    fn test_chain_name_collision_avoidance() {
+        // These IDs share the first 20 characters
+        let id1 = "long-project-task-name-1";
+        let id2 = "long-project-task-name-2";
+
+        let m1 = FirewallManager::new(id1.to_string());
+        let m2 = FirewallManager::new(id2.to_string());
+
+        assert_ne!(
+            m1.chain_name(),
+            m2.chain_name(),
+            "Chain names must be unique even for similar long IDs"
+        );
+
+        // Verify length constraint
+        assert!(m1.chain_name().len() <= 28);
+        assert!(m2.chain_name().len() <= 28);
+    }
+
+    #[test]
+    fn test_firewall_manager_with_interface() {
+        let manager = FirewallManager::new("vm-1".to_string())
+            .with_interface("tap0".to_string());
+
+        assert_eq!(manager.interface, Some("tap0".to_string()));
     }
 }
