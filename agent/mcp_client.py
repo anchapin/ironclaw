@@ -288,7 +288,7 @@ class McpClient:
                 orch_cmd,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                # stderr=None (default) inherits parent's stderr, showing build progress/logs
+                stderr=sys.stderr,  # Direct to stderr to show build progress/logs
                 text=True,
                 bufsize=1,  # Line buffered
             )

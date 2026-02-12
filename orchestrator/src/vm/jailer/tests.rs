@@ -7,6 +7,14 @@ mod tests {
     use crate::vm::config::VmConfig;
     use crate::vm::jailer::{JailerConfig, verify_jailer_installed};
 
+    fn get_valid_config(id: &str) -> JailerConfig {
+        let mut config = JailerConfig::new(id.to_string());
+        // Use existing paths for validation to pass in CI/test environments
+        config.exec_file = std::env::current_exe().unwrap_or(std::path::PathBuf::from("cargo"));
+        config.chroot_base_dir = std::env::temp_dir().join("jailer");
+        config
+    }
+
     /// Test that jailer can be verified as installed
     #[test]
     fn test_verify_jailer_installed() {
@@ -22,7 +30,7 @@ mod tests {
     /// Test that jailer config validates correct IDs
     #[test]
     fn test_jailer_config_valid_id() {
-        let config = JailerConfig::new("test-vm-123".to_string());
+        let config = get_valid_config("test-vm-123");
         assert!(config.validate().is_ok());
     }
 
@@ -51,7 +59,7 @@ mod tests {
     /// Test that jailer config with custom user works
     #[test]
     fn test_jailer_config_with_user() {
-        let config = JailerConfig::new("test".to_string())
+        let config = get_valid_config("test")
             .with_user(123, 456);
         assert_eq!(config.uid, 123);
         assert_eq!(config.gid, 456);
@@ -61,7 +69,7 @@ mod tests {
     /// Test that jailer config with NUMA node works
     #[test]
     fn test_jailer_config_with_numa() {
-        let config = JailerConfig::new("test".to_string())
+        let config = get_valid_config("test")
             .with_numa_node(1);
         assert_eq!(config.numa_node, 1);
         assert!(config.validate().is_ok());
@@ -70,7 +78,7 @@ mod tests {
     /// Test that jailer config with cgroups works
     #[test]
     fn test_jailer_config_with_cgroup() {
-        let config = JailerConfig::new("test".to_string())
+        let config = get_valid_config("test")
             .with_cgroup("cpu.shares".to_string(), "1024".to_string());
 
         assert_eq!(
@@ -157,7 +165,7 @@ mod tests {
         ];
 
         for id in valid_ids {
-            let config = JailerConfig::new(id.to_string());
+            let config = get_valid_config(id);
             assert!(
                 config.validate().is_ok(),
                 "ID should be valid: {}",

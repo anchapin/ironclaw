@@ -222,7 +222,11 @@ mod tests {
 
     #[test]
     fn test_config_validation_valid_id() {
-        let config = JailerConfig::new("valid-vm-id-123".to_string());
+        let mut config = JailerConfig::new("valid-vm-id-123".to_string());
+        // Use existing paths for validation to pass in CI/test environments
+        config.exec_file = std::env::current_exe().unwrap_or(PathBuf::from("cargo"));
+        config.chroot_base_dir = std::env::temp_dir().join("jailer");
+        // Ensure parent of chroot base exists (temp_dir exists)
         assert!(config.validate().is_ok());
     }
 
