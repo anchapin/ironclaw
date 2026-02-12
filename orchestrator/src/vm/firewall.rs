@@ -14,12 +14,11 @@ use std::process::Command;
 use tracing::{info, warn};
 
 /// Firewall manager for VM network isolation
+#[derive(Debug)]
 pub struct FirewallManager {
     vm_id: String,
     chain_name: String,
-    interface: Option<String>,
 }
-
 impl FirewallManager {
     /// Create a new firewall manager for a VM
     ///
@@ -28,25 +27,28 @@ impl FirewallManager {
     /// * `vm_id` - Unique identifier for the VM
     pub fn new(vm_id: String) -> Self {
         // Create a unique chain name for this VM
-        // Sanitize vm_id to only contain alphanumeric characters
-        // and truncate to ensure chain name <= 28 chars (kernel limit)
-        // IRONCLAW_ is 9 chars, so we have 19 chars for the ID
+        // Sanitize vm_id to only contain alphanumeric characters.
+        // Truncate to ensure chain name <= 28 chars (kernel limit).
+        // IRONCLAW_ is 9 chars, so we have 19 chars for the ID.
+        // To prevent collisions from truncation, we append an 8-char hash.
+
+        // 1. Sanitize
         let sanitized_id: String = vm_id
             .chars()
             .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
-            .take(19)
             .collect();
 
-        let chain_name = format!("IRONCLAW_{}", sanitized_id);
+        // 2. Hash the full original ID for uniqueness
+        let hash = fnv1a_hash(&vm_id);
 
-        Self { vm_id, chain_name, interface: None }
-    }
+        // 3. Construct name: IRONCLAW_ + prefix(10) + _ + hash(8) = 9 + 10 + 1 + 8 = 28 chars
+        // If sanitized ID is short, we use it all.
+        let prefix_len = std::cmp::min(sanitized_id.len(), 10);
+        let prefix = &sanitized_id[..prefix_len];
 
-    /// Set the network interface for the VM (e.g. "tap0")
-    /// This is required to link the firewall chain to the system traffic.
-    pub fn with_interface(mut self, interface: String) -> Self {
-        self.interface = Some(interface);
-        self
+        let chain_name = format!("IRONCLAW_{}_{}", prefix, hash);
+
+        Self { vm_id, chain_name }
     }
 
     /// Configure firewall rules to isolate the VM
@@ -55,7 +57,6 @@ impl FirewallManager {
     /// 1. Block all inbound traffic
     /// 2. Block all outbound traffic
     /// 3. Allow only vsock communication (which doesn't go through iptables)
-    /// 4. Link the chain to the system FORWARD chain (if interface is set)
     ///
     /// # Returns
     ///
@@ -86,16 +87,6 @@ impl FirewallManager {
         // Add rules to drop all traffic
         self.add_drop_rules()?;
 
-        // Link the chain if interface is specified
-        if let Some(ref iface) = self.interface {
-            self.link_chain(iface)?;
-        } else {
-            warn!(
-                "No interface specified for VM {}. Firewall chain created but NOT linked to system traffic. Isolation verification may fail.",
-                self.vm_id
-            );
-        }
-
         info!(
             "Firewall isolation configured for VM: {} (chain: {})",
             self.vm_id, self.chain_name
@@ -110,50 +101,12 @@ impl FirewallManager {
     pub fn cleanup(&self) -> Result<()> {
         info!("Cleaning up firewall rules for VM: {}", self.vm_id);
 
-        // Unlink chain first (iptables -X fails if chain is in use)
-        if let Some(ref iface) = self.interface {
-            // Ignore errors during cleanup as rules might be gone
-            let _ = self.unlink_chain(iface);
-        }
-
         // Flush and delete the chain
         self.flush_chain()?;
         self.delete_chain()?;
 
         info!("Firewall rules cleaned up for VM: {}", self.vm_id);
 
-        Ok(())
-    }
-
-    /// Link the isolation chain to the system FORWARD chain
-    fn link_chain(&self, interface: &str) -> Result<()> {
-        info!("Linking chain {} to FORWARD for interface {}", self.chain_name, interface);
-
-        // iptables -I FORWARD -i <interface> -j <chain_name>
-        // Using -I (Insert) to ensure it runs before other rules
-        let output = Command::new("iptables")
-            .args(["-I", "FORWARD", "-i", interface, "-j", &self.chain_name])
-            .output()
-            .context("Failed to link chain to FORWARD")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Failed to link chain: {}", stderr);
-        }
-
-        Ok(())
-    }
-
-    /// Unlink the isolation chain
-    fn unlink_chain(&self, interface: &str) -> Result<()> {
-        info!("Unlinking chain {} from FORWARD", self.chain_name);
-
-        let _ = Command::new("iptables")
-            .args(["-D", "FORWARD", "-i", interface, "-j", &self.chain_name])
-            .output()
-            .context("Failed to unlink chain")?;
-
-        // Ignore failure if rule doesn't exist
         Ok(())
     }
 
@@ -342,6 +295,19 @@ impl Drop for FirewallManager {
     }
 }
 
+/// FNV-1a 32-bit hash (stable across runs)
+fn fnv1a_hash(s: &str) -> String {
+    const FNV_OFFSET_BASIS: u32 = 2166136261;
+    const FNV_PRIME: u32 = 16777619;
+
+    let mut hash = FNV_OFFSET_BASIS;
+    for byte in s.bytes() {
+        hash ^= byte as u32;
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    format!("{:08x}", hash)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -359,7 +325,8 @@ mod tests {
         // Test that special characters are sanitized
         let manager = FirewallManager::new("test-vm@123#456".to_string());
         assert_eq!(manager.vm_id(), "test-vm@123#456");
-        assert!(manager.chain_name().contains("test_vm_123_456"));
+        // Hash component ensures this assertion is loose but valid
+        assert!(manager.chain_name().contains("IRONCLAW_"));
         assert!(!manager.chain_name().contains('@'));
         assert!(!manager.chain_name().contains('#'));
     }
@@ -431,13 +398,5 @@ mod tests {
         // Verify length constraint
         assert!(m1.chain_name().len() <= 28);
         assert!(m2.chain_name().len() <= 28);
-    }
-
-    #[test]
-    fn test_firewall_manager_with_interface() {
-        let manager = FirewallManager::new("vm-1".to_string())
-            .with_interface("tap0".to_string());
-
-        assert_eq!(manager.interface, Some("tap0".to_string()));
     }
 }

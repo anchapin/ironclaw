@@ -2,14 +2,11 @@
 //
 // This module handles the actual Firecracker VM spawning using the HTTP API over Unix sockets.
 
-#![allow(unused_imports)]
-
 use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper::{Request, StatusCode};
 use hyper_util::rt::TokioIo;
-#[cfg(unix)]
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -30,7 +27,6 @@ pub struct FirecrackerProcess {
 
 // Firecracker API structs
 
-#[cfg(unix)]
 #[derive(Serialize)]
 struct BootSource {
     kernel_image_path: String,
@@ -38,7 +34,6 @@ struct BootSource {
     boot_args: Option<String>,
 }
 
-#[cfg(unix)]
 #[derive(Serialize)]
 struct Drive {
     drive_id: String,
@@ -47,7 +42,6 @@ struct Drive {
     is_read_only: bool,
 }
 
-#[cfg(unix)]
 #[derive(Serialize)]
 struct MachineConfiguration {
     vcpu_count: u8,
@@ -55,15 +49,13 @@ struct MachineConfiguration {
     // ht_enabled: bool, // Optional, defaults to false
 }
 
-#[cfg(unix)]
 #[derive(Serialize)]
-struct VsockDevice {
+struct Vsock {
     vsock_id: String,
     guest_cid: u32,
     uds_path: String,
 }
 
-#[cfg(unix)]
 #[derive(Serialize)]
 struct Action {
     action_type: String,
@@ -253,7 +245,7 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
         drive_id: "rootfs".to_string(),
         path_on_host: config.rootfs_path.clone(),
         is_root_device: true,
-        is_read_only: false,
+        is_read_only: true, // Set to read-only to prevent corruption
     };
     send_request(
         socket_path,
@@ -278,20 +270,11 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     .await
     .context("Failed to configure machine")?;
 
-    // 4. Configure vsock (if enabled)
+    // 4. Set Vsock (if configured)
     if let Some(vsock_path) = &config.vsock_path {
-        // Ensure vsock directory exists
-        if let Some(parent) = Path::new(vsock_path).parent() {
-            if !parent.exists() {
-                tokio::fs::create_dir_all(parent)
-                    .await
-                    .context("Failed to create vsock directory")?;
-            }
-        }
-
-        let vsock = VsockDevice {
-            vsock_id: "1".to_string(),
-            guest_cid: 3, // CID 3 is commonly used for the first guest
+        let vsock = Vsock {
+            vsock_id: "root".to_string(),
+            guest_cid: 3,
             uds_path: vsock_path.clone(),
         };
         send_request(socket_path, hyper::Method::PUT, "/vsock", Some(&vsock))
@@ -317,7 +300,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[cfg(unix)]
     fn test_firecracker_structs_serialization() {
         let boot_source = BootSource {
             kernel_image_path: "/tmp/kernel".to_string(),
