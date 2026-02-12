@@ -102,11 +102,7 @@ mod tests {
         let buffer = terminal.backend().buffer();
 
         // Collect all symbols into a single string for verification
-        let full_text: String = buffer
-            .content
-            .iter()
-            .map(|c| c.symbol())
-            .collect();
+        let full_text: String = buffer.content.iter().map(|c| c.symbol()).collect();
 
         // Verify header
         assert!(full_text.contains("Action Approval Required: Red (Requires Approval)"));
