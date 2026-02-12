@@ -8,107 +8,49 @@
 // - Security: No host execution, full isolation
 
 pub mod config;
+pub mod seccomp;
 
 #[cfg(unix)]
 pub mod firecracker;
 #[cfg(unix)]
 pub mod firewall;
 #[cfg(unix)]
-pub mod seccomp;
-#[cfg(unix)]
 pub mod vsock;
 
-#[cfg(not(unix))]
-pub mod firecracker {
-    use crate::vm::config::VmConfig;
-    use anyhow::{anyhow, Result};
-
-    #[derive(Debug)]
-    pub struct FirecrackerProcess {
-        pub spawn_time_ms: f64,
-    }
-
-    pub async fn start_firecracker(_config: &VmConfig) -> Result<FirecrackerProcess> {
-        Err(anyhow!("Firecracker is only supported on Unix systems"))
-    }
-
-    pub async fn stop_firecracker(_process: FirecrackerProcess) -> Result<()> {
-        Ok(())
-    }
-}
-
-#[cfg(not(unix))]
-pub mod firewall {
-    use anyhow::Result;
-
-    #[derive(Debug)]
-    pub struct FirewallManager;
-
-    impl FirewallManager {
-        pub fn new(_vm_id: String) -> Self {
-            Self
-        }
-
-        pub fn configure_isolation(&self) -> Result<()> {
-            Ok(())
-        }
-
-        pub fn verify_isolation(&self) -> Result<bool> {
-            Ok(false)
-        }
-    }
-}
-
-#[cfg(not(unix))]
-pub mod seccomp {
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-    pub enum SeccompLevel {
-        #[default]
-        Basic,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct SeccompFilter;
-
-    impl SeccompFilter {
-        pub fn new(_level: SeccompLevel) -> Self {
-            Self
-        }
-    }
-}
-
-#[cfg(not(unix))]
-pub mod vsock {
-    // Empty module for non-unix
-}
-
-// Prototype module for feasibility testing
-// TODO: Add vm-prototype feature to Cargo.toml when prototype module is ready
-// #[cfg(feature = "vm-prototype")]
-// pub mod prototype;
-
-#[cfg(all(test, unix))]
+#[cfg(test)]
+#[cfg(unix)]
 mod tests;
 
 use anyhow::Result;
+#[cfg(unix)]
 use std::sync::Arc;
+#[cfg(unix)]
 use tokio::sync::Mutex;
 
 use crate::vm::config::VmConfig;
+#[cfg(unix)]
 use crate::vm::firecracker::{start_firecracker, stop_firecracker, FirecrackerProcess};
+#[cfg(unix)]
 use crate::vm::firewall::FirewallManager;
 #[cfg(unix)]
 use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
 
-/// VM handle for managing lifecycle
+/// VM handle for managing lifecycle (Unix/Linux)
+#[cfg(unix)]
 pub struct VmHandle {
     pub id: String,
     process: Arc<Mutex<Option<FirecrackerProcess>>>,
     pub spawn_time_ms: f64,
     config: VmConfig,
     firewall_manager: Option<FirewallManager>,
+}
+
+/// VM handle for managing lifecycle (Non-Unix Stub)
+#[cfg(not(unix))]
+pub struct VmHandle {
+    pub id: String,
+    pub spawn_time_ms: f64,
+    pub config: VmConfig,
 }
 
 impl VmHandle {
@@ -119,70 +61,12 @@ impl VmHandle {
 }
 
 /// Spawn a new JIT Micro-VM
-///
-/// # Arguments
-///
-/// * `task_id` - Unique identifier for the task
-///
-/// # Returns
-///
-/// * `VmHandle` - Handle for managing the VM
-///
-/// # Performance
-///
-/// Completes in ~110ms (beats 200ms target by 45%)
-///
-/// # Security
-///
-/// Seccomp filters are applied by default (Basic level) to restrict syscalls.
-/// 99% of syscalls are blocked, only essential ones are allowed.
-///
-/// # Example
-///
-/// ```no_run
-/// use ironclaw_orchestrator::vm::spawn_vm;
-///
-/// #[tokio::main]
-/// async fn main() -> anyhow::Result<()> {
-///     let handle = spawn_vm("my-task").await?;
-///     println!("VM {} spawned in {:.2}ms", handle.id, handle.spawn_time_ms);
-///     // ... use VM ...
-///     Ok(())
-/// }
-/// ```
 pub async fn spawn_vm(task_id: &str) -> Result<VmHandle> {
     spawn_vm_with_config(task_id, &VmConfig::new(task_id.to_string())).await
 }
 
-/// Spawn a new JIT Micro-VM with custom configuration
-///
-/// # Arguments
-///
-/// * `task_id` - Unique identifier for the task
-/// * `config` - VM configuration (including seccomp filter)
-///
-/// # Returns
-///
-/// * `VmHandle` - Handle for managing the VM
-///
-/// # Example
-///
-/// ```no_run
-/// use ironclaw_orchestrator::vm::{spawn_vm_with_config, config::VmConfig};
-/// use ironclaw_orchestrator::vm::seccomp::{SeccompFilter, SeccompLevel};
-///
-/// #[tokio::main]
-/// async fn main() -> anyhow::Result<()> {
-///     let config = VmConfig::new("my-task".to_string());
-///     let config_with_seccomp = VmConfig {
-///         seccomp_filter: Some(SeccompFilter::new(SeccompLevel::Basic)),
-///         ..config
-///     };
-///
-///     let handle = spawn_vm_with_config("my-task", &config_with_seccomp).await?;
-///     Ok(())
-/// }
-/// ```
+/// Spawn a new JIT Micro-VM with custom configuration (Unix implementation)
+#[cfg(unix)]
 pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<VmHandle> {
     tracing::info!("Spawning VM for task: {}", task_id);
 
@@ -263,30 +147,14 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
     }
 }
 
-/// Destroy a VM (ephemeral cleanup)
-///
-/// # Arguments
-///
-/// * `handle` - VM handle to destroy
-///
-/// # Important
-///
-/// This MUST be called after task completion to ensure
-/// no malware can persist (the "infected computer no longer exists")
-///
-/// # Example
-///
-/// ```no_run
-/// use ironclaw_orchestrator::vm::{spawn_vm, destroy_vm};
-///
-/// #[tokio::main]
-/// async fn main() -> anyhow::Result<()> {
-///     let handle = spawn_vm("my-task").await?;
-///     // ... use VM ...
-///     destroy_vm(handle).await?;
-///     Ok(())
-/// }
-/// ```
+/// Spawn a new JIT Micro-VM with custom configuration (Non-Unix Stub)
+#[cfg(not(unix))]
+pub async fn spawn_vm_with_config(_task_id: &str, _config: &VmConfig) -> Result<VmHandle> {
+    anyhow::bail!("JIT Micro-VMs are only supported on Unix-like systems (Linux/macOS). Windows is not supported.");
+}
+
+/// Destroy a VM (ephemeral cleanup) - Unix implementation
+#[cfg(unix)]
 pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
     tracing::info!("Destroying VM: {}", handle.id);
 
@@ -302,21 +170,25 @@ pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
     Ok(())
 }
 
-/// Verify that a VM is properly network-isolated
-///
-/// # Arguments
-///
-/// * `handle` - VM handle to verify
-///
-/// # Returns
-///
-/// * `Ok(true)` - VM is properly isolated
-/// * `Ok(false)` - VM is not isolated
-/// * `Err(_)` - Failed to check isolation status
+/// Destroy a VM (ephemeral cleanup) - Non-Unix Stub
+#[cfg(not(unix))]
+pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
+    tracing::info!("Destroying VM stub: {}", handle.id);
+    Ok(())
+}
+
+/// Verify that a VM is properly network-isolated (Unix implementation)
+#[cfg(unix)]
 pub fn verify_network_isolation(handle: &VmHandle) -> Result<bool> {
     if let Some(ref firewall) = handle.firewall_manager {
         firewall.verify_isolation()
     } else {
         Ok(false)
     }
+}
+
+/// Verify that a VM is properly network-isolated (Non-Unix Stub)
+#[cfg(not(unix))]
+pub fn verify_network_isolation(_handle: &VmHandle) -> Result<bool> {
+    Ok(false)
 }
