@@ -661,11 +661,18 @@ mod tests {
 
         // These syscalls MUST NOT be allowed for security
         let dangerous = [
+<<<<<<< HEAD
             // VSOCK syscalls are now allowed in Basic level
             // "socket",    // Network operations
             // "bind",      // Network operations
             // "listen",    // Network operations
             // "connect",   // Network operations
+=======
+            "socket",     // Network operations
+            "bind",       // Network operations
+            "listen",     // Network operations
+            "connect",    // Network operations
+>>>>>>> 4b6ceae (fix: link vm module and resolve compilation errors)
             "clone",      // Process creation
             "fork",       // Process creation
             "vfork",      // Process creation

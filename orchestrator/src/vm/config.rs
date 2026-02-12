@@ -2,7 +2,10 @@
 //
 // Firecracker VM configuration for secure agent execution
 
+<<<<<<< HEAD
 #[cfg(target_os = "linux")]
+=======
+>>>>>>> 4b6ceae (fix: link vm module and resolve compilation errors)
 use crate::vm::seccomp::SeccompFilter;
 use serde::{Deserialize, Serialize};
 
