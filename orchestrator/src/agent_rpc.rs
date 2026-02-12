@@ -118,7 +118,10 @@ pub struct AgentConfig {
 impl AgentConfig {
     /// Create new agent configuration
     pub fn new(server_name: String, command: Vec<String>) -> Self {
-        Self { server_name, command }
+        Self {
+            server_name,
+            command,
+        }
     }
 }
 
@@ -167,7 +170,8 @@ impl AgentServer {
         // Create and initialize MCP client
         let mut client = McpClient::new(transport);
 
-        client.initialize()
+        client
+            .initialize()
             .await
             .context("Failed to initialize MCP client")?;
 
@@ -196,7 +200,11 @@ impl AgentServer {
     }
 
     /// Handle "initialize" method
-    async fn handle_initialize(&mut self, config: &AgentConfig, _params: Option<serde_json::Value>) -> Result<serde_json::Value> {
+    async fn handle_initialize(
+        &mut self,
+        config: &AgentConfig,
+        _params: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value> {
         info!("📋 Handling initialize request");
 
         // Initialize MCP connection
@@ -211,48 +219,58 @@ impl AgentServer {
     }
 
     /// Handle "tools/list" method
-    async fn handle_tools_list(&mut self, _params: Option<serde_json::Value>) -> Result<serde_json::Value> {
+    async fn handle_tools_list(
+        &mut self,
+        _params: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value> {
         info!("🔍 Handling tools/list request");
 
-        let client = self.mcp_client
+        let client = self
+            .mcp_client
             .as_mut()
             .ok_or_else(|| anyhow::anyhow!("MCP client not initialized"))?;
 
-        let tools = client.list_tools()
-            .await
-            .context("Failed to list tools")?;
+        let tools = client.list_tools().await.context("Failed to list tools")?;
 
         let tools_json: Vec<serde_json::Value> = tools
             .into_iter()
-            .map(|t| json!({
-                "name": t.name,
-                "description": t.description,
-                "inputSchema": t.input_schema,
-            }))
+            .map(|t| {
+                json!({
+                    "name": t.name,
+                    "description": t.description,
+                    "inputSchema": t.input_schema,
+                })
+            })
             .collect();
 
         Ok(json!({ "tools": tools_json }))
     }
 
     /// Handle "tools/call" method
-    async fn handle_tools_call(&mut self, params: Option<serde_json::Value>) -> Result<serde_json::Value> {
-        let params = params
-            .ok_or_else(|| anyhow::anyhow!("Missing params"))?;
+    async fn handle_tools_call(
+        &mut self,
+        params: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value> {
+        let params = params.ok_or_else(|| anyhow::anyhow!("Missing params"))?;
 
-        let tool_name = params.get("name")
+        let tool_name = params
+            .get("name")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing or invalid 'name' parameter"))?;
 
-        let arguments = params.get("arguments")
+        let arguments = params
+            .get("arguments")
             .ok_or_else(|| anyhow::anyhow!("Missing 'arguments' parameter"))?;
 
         info!("🔧 Handling tools/call request: {}", tool_name);
 
-        let client = self.mcp_client
+        let client = self
+            .mcp_client
             .as_mut()
             .ok_or_else(|| anyhow::anyhow!("MCP client not initialized"))?;
 
-        let result = client.call_tool(tool_name, arguments.clone())
+        let result = client
+            .call_tool(tool_name, arguments.clone())
             .await
             .context("Failed to call tool")?;
 
@@ -272,8 +290,7 @@ impl AgentServer {
 ///
 /// Returns an error if runtime creation or server execution fails
 pub fn run_agent_rpc_server_sync(config: AgentConfig) -> Result<()> {
-    let rt = tokio::runtime::Runtime::new()
-        .context("Failed to create tokio runtime")?;
+    let rt = tokio::runtime::Runtime::new().context("Failed to create tokio runtime")?;
 
     rt.block_on(run_agent_rpc_server(config))
 }
@@ -311,7 +328,8 @@ pub async fn run_agent_rpc_server(config: AgentConfig) -> Result<()> {
         line.clear();
 
         // Read request from stdin
-        let bytes_read = stdin_lock.read_line(&mut line)
+        let bytes_read = stdin_lock
+            .read_line(&mut line)
             .context("Failed to read from stdin")?;
 
         if bytes_read == 0 {
@@ -348,7 +366,9 @@ pub async fn run_agent_rpc_server(config: AgentConfig) -> Result<()> {
             let error_response = JsonResponse {
                 jsonrpc: "2.0",
                 result: None,
-                error: Some(JsonRpcError::invalid_request("Unsupported JSON-RPC version".to_string())),
+                error: Some(JsonRpcError::invalid_request(
+                    "Unsupported JSON-RPC version".to_string(),
+                )),
                 id: request.id,
             };
             write_response(&mut stdout_lock, &error_response);
