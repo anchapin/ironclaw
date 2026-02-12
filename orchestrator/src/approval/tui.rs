@@ -43,7 +43,10 @@ pub fn run_diff_card(action: &Action) -> Result<ApprovalDecision> {
     res
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, action: &Action) -> Result<ApprovalDecision> {
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, action: &Action) -> Result<ApprovalDecision>
+where
+    <B as Backend>::Error: Send + Sync + 'static,
+{
     loop {
         terminal.draw(|f| ui(f, action))?;
 
@@ -60,8 +63,65 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, action: &Action) -> Result<Ap
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::backend::TestBackend;
+
+    #[test]
+    fn test_render_diff() {
+        let path = "test.txt";
+        let old = "foo\nbar";
+        let new = "foo\nbaz";
+        let lines = render_diff(path, old, new);
+
+        assert_eq!(lines.len(), 5); // File: ..., empty,  foo, -bar, +baz
+        assert_eq!(lines[0].spans[1].content, "test.txt");
+        assert_eq!(lines[2].spans[0].content, " ");
+        assert_eq!(lines[3].spans[0].content, "-");
+        assert_eq!(lines[4].spans[0].content, "+");
+    }
+
+    #[test]
+    fn test_ui_layout() {
+        let backend = TestBackend::new(100, 20);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let action = Action {
+            kind: super::super::ActionKind::Red,
+            description: "Delete critical file".to_string(),
+            changes: ActionChanges::FileDelete {
+                path: "/etc/passwd".to_string(),
+            },
+        };
+
+        terminal
+            .draw(|f| ui(f, &action))
+            .expect("failed to draw ui");
+
+        let buffer = terminal.backend().buffer();
+
+        // Collect all symbols into a single string for verification
+        let full_text: String = buffer
+            .content
+            .iter()
+            .map(|c| c.symbol())
+            .collect();
+
+        // Verify header
+        assert!(full_text.contains("Action Approval Required: Red (Requires Approval)"));
+
+        // Verify content
+        assert!(full_text.contains("DELETING FILE:"));
+        assert!(full_text.contains("/etc/passwd"));
+
+        // Verify footer
+        assert!(full_text.contains("Press 'y' to Approve"));
+    }
+}
+
 fn ui(f: &mut Frame, action: &Action) {
-    let size = f.size();
+    let size = f.area();
 
     // Vertical layout: Header, Content, Footer
     let chunks = Layout::default()
@@ -135,7 +195,7 @@ fn ui(f: &mut Frame, action: &Action) {
     f.render_widget(footer, chunks[2]);
 }
 
-fn render_diff<'a>(path: &str, old_content: &str, new_content: &str) -> Vec<Line<'a>> {
+fn render_diff<'a>(path: &'a str, old_content: &'a str, new_content: &'a str) -> Vec<Line<'a>> {
     let mut lines = vec![];
 
     lines.push(Line::from(vec![
