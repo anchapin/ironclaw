@@ -39,7 +39,11 @@ impl FirewallManager {
 
         let chain_name = format!("IRONCLAW_{}", sanitized_id);
 
-        Self { vm_id, chain_name, interface: None }
+        Self {
+            vm_id,
+            chain_name,
+            interface: None,
+        }
     }
 
     /// Set the network interface for the VM (e.g. "tap0")
@@ -127,7 +131,10 @@ impl FirewallManager {
 
     /// Link the isolation chain to the system FORWARD chain
     fn link_chain(&self, interface: &str) -> Result<()> {
-        info!("Linking chain {} to FORWARD for interface {}", self.chain_name, interface);
+        info!(
+            "Linking chain {} to FORWARD for interface {}",
+            self.chain_name, interface
+        );
 
         // iptables -I FORWARD -i <interface> -j <chain_name>
         // Using -I (Insert) to ensure it runs before other rules
@@ -455,8 +462,7 @@ mod tests {
 
     #[test]
     fn test_firewall_manager_with_interface() {
-        let manager = FirewallManager::new("vm-1".to_string())
-            .with_interface("tap0".to_string());
+        let manager = FirewallManager::new("vm-1".to_string()).with_interface("tap0".to_string());
 
         assert_eq!(manager.interface, Some("tap0".to_string()));
     }
