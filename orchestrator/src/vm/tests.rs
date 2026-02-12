@@ -127,15 +127,21 @@ fn test_firewall_sanitizes_vm_ids() {
     let test_cases = vec![
         ("simple", "IRONCLAW_simple"),
         ("with-dash", "IRONCLAW_with_dash"),
-        ("with@symbol", "IRONCLAW_with_symbol"),
+        ("with@symbol", "IRONCLAW_with_symbo"), // Truncated to 10 chars
         ("with/slash", "IRONCLAW_with_slash"),
         ("with space", "IRONCLAW_with_space"),
         ("with.dot", "IRONCLAW_with_dot"),
     ];
 
-    for (vm_id, expected_chain) in test_cases {
+    for (vm_id, expected_prefix) in test_cases {
         let manager = FirewallManager::new(vm_id.to_string());
-        assert_eq!(manager.chain_name(), expected_chain);
+        // Now verify prefix instead of exact match due to hash suffix
+        assert!(
+            manager.chain_name().starts_with(expected_prefix),
+            "Chain name {} should start with {}",
+            manager.chain_name(),
+            expected_prefix
+        );
     }
 }
 
@@ -232,15 +238,30 @@ async fn test_vm_with_long_id() {
     assert!(chain.starts_with("IRONCLAW_"));
     assert!(chain.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'));
 
-    // Verify correct truncation
+    // Verify correct truncation and hashing
     // "a" * 20 -> sanitized to "a" * 20 (assuming ascii)
-    // truncated to 19 chars
-    // prefix "IRONCLAW_" + 19 "a"s
-    let expected_suffix = "a".repeat(19);
-    assert!(chain.ends_with(&expected_suffix));
-    assert!(!chain.contains(&"a".repeat(20)));
+    // truncated to 10 chars
+    // prefix "IRONCLAW_" + 10 "a"s + "_" + 8 hex chars
+    let expected_prefix = format!("IRONCLAW_{}_", "a".repeat(10));
+    assert!(chain.starts_with(&expected_prefix));
+    // Verify total length
+    assert!(chain.len() <= 28);
 
     destroy_vm(handle).await.unwrap();
+}
+
+#[test]
+fn test_firewall_chain_name_collision_check() {
+    use crate::vm::firewall::FirewallManager;
+    let id1 = "a-long-running-job-worker-1";
+    let id2 = "a-long-running-job-worker-2";
+    let manager1 = FirewallManager::new(id1.to_string());
+    let manager2 = FirewallManager::new(id2.to_string());
+    assert_ne!(
+        manager1.chain_name(),
+        manager2.chain_name(),
+        "Chain names must be unique for different IDs"
+    );
 }
 
 /// Test edge case: VM with special characters in ID

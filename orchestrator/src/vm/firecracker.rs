@@ -9,6 +9,7 @@ use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper::{Request, StatusCode};
 use hyper_util::rt::TokioIo;
+#[cfg(unix)]
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -29,6 +30,7 @@ pub struct FirecrackerProcess {
 
 // Firecracker API structs
 
+#[cfg(unix)]
 #[derive(Serialize)]
 struct BootSource {
     kernel_image_path: String,
@@ -36,6 +38,7 @@ struct BootSource {
     boot_args: Option<String>,
 }
 
+#[cfg(unix)]
 #[derive(Serialize)]
 struct Drive {
     drive_id: String,
@@ -44,6 +47,7 @@ struct Drive {
     is_read_only: bool,
 }
 
+#[cfg(unix)]
 #[derive(Serialize)]
 struct MachineConfiguration {
     vcpu_count: u8,
@@ -51,6 +55,15 @@ struct MachineConfiguration {
     // ht_enabled: bool, // Optional, defaults to false
 }
 
+#[cfg(unix)]
+#[derive(Serialize)]
+struct VsockDevice {
+    vsock_id: String,
+    guest_cid: u32,
+    uds_path: String,
+}
+
+#[cfg(unix)]
 #[derive(Serialize)]
 struct Action {
     action_type: String,
@@ -265,6 +278,27 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     .await
     .context("Failed to configure machine")?;
 
+    // 4. Configure vsock (if enabled)
+    if let Some(vsock_path) = &config.vsock_path {
+        // Ensure vsock directory exists
+        if let Some(parent) = Path::new(vsock_path).parent() {
+            if !parent.exists() {
+                tokio::fs::create_dir_all(parent)
+                    .await
+                    .context("Failed to create vsock directory")?;
+            }
+        }
+
+        let vsock = VsockDevice {
+            vsock_id: "1".to_string(),
+            guest_cid: 3, // CID 3 is commonly used for the first guest
+            uds_path: vsock_path.clone(),
+        };
+        send_request(socket_path, hyper::Method::PUT, "/vsock", Some(&vsock))
+            .await
+            .context("Failed to configure vsock")?;
+    }
+
     Ok(())
 }
 
@@ -283,6 +317,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(unix)]
     fn test_firecracker_structs_serialization() {
         let boot_source = BootSource {
             kernel_image_path: "/tmp/kernel".to_string(),

@@ -181,7 +181,7 @@ class McpClient:
 
         base_cmd = command[0]
         # Allow paths (e.g., ./node_modules/.bin/npx) by checking base name
-        base_name = base_cmd.split('/')[-1].split('\\')[-1]
+        base_name = base_cmd.split("/")[-1].split("\\")[-1]
 
         if base_name not in safe_commands:
             # Log warning but don't fail - user may have custom setup
