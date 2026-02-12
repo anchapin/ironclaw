@@ -219,6 +219,7 @@ async fn send_request<T: Serialize>(
         .await
         .context("Failed to connect to firecracker socket")?;
     let io = TokioIo::new(stream);
+    #[allow(clippy::type_complexity)]
     let (mut sender, conn): (
         HttpSendRequest<Full<Bytes>>,
         HttpConnection<TokioIo<UnixStream>, Full<Bytes>>,
