@@ -30,14 +30,26 @@ impl FirewallManager {
         // Create a unique chain name for this VM
         // Sanitize vm_id to only contain alphanumeric characters
         // and truncate to ensure chain name <= 28 chars (kernel limit)
-        // IRONCLAW_ is 9 chars, so we have 19 chars for the ID
-        let sanitized_id: String = vm_id
+        // IRONCLAW_ is 9 chars. We use a hash to ensure uniqueness for long IDs.
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        vm_id.hash(&mut hasher);
+        let hash = hasher.finish();
+
+        // Use first 8 chars of hex hash (sufficient for uniqueness in this context)
+        let hash_str = format!("{:x}", hash);
+        let short_hash = &hash_str[0..8.min(hash_str.len())];
+
+        // We have 28 - 9 (prefix) - 1 (underscore) - 8 (hash) = 10 chars for the ID prefix
+        let id_prefix: String = vm_id
             .chars()
             .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
-            .take(19)
+            .take(10)
             .collect();
 
-        let chain_name = format!("IRONCLAW_{}", sanitized_id);
+        let chain_name = format!("IRONCLAW_{}_{}", id_prefix, short_hash);
 
         Self {
             vm_id,
@@ -366,7 +378,8 @@ mod tests {
         // Test that special characters are sanitized
         let manager = FirewallManager::new("test-vm@123#456".to_string());
         assert_eq!(manager.vm_id(), "test-vm@123#456");
-        assert!(manager.chain_name().contains("test_vm_123_456"));
+        // Prefix is truncated to 10 chars: "test_vm_12"
+        assert!(manager.chain_name().contains("test_vm_12"));
         assert!(!manager.chain_name().contains('@'));
         assert!(!manager.chain_name().contains('#'));
     }

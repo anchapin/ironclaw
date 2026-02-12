@@ -16,10 +16,11 @@ mod tests {
         config.enable_networking = true;
 
         let result = config.validate();
-        // TODO: Re-enable this check once config validation includes networking check
-        // assert!(result.is_err());
-        // assert!(result.unwrap_err().to_string().contains("MUST be disabled"));
-        assert!(result.is_ok());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Networking MUST be disabled"));
     }
 
     /// Test that multiple VMs can be spawned with unique firewall chains
@@ -98,9 +99,7 @@ mod tests {
         // Test 1: Networking must be disabled
         let mut config = VmConfig::new("security-test-1".to_string());
         config.enable_networking = true;
-        // TODO: Re-enable this check once config validation includes networking check
-        // assert!(config.validate().is_err());
-        assert!(config.validate().is_ok());
+        assert!(config.validate().is_err());
 
         // Test 2: vCPU count must be > 0
         let mut config = VmConfig::new("security-test-2".to_string());
@@ -128,15 +127,25 @@ mod tests {
         let test_cases = vec![
             ("simple", "IRONCLAW_simple"),
             ("with-dash", "IRONCLAW_with_dash"),
-            ("with@symbol", "IRONCLAW_with_symbol"),
+            // "with_symbol" is 11 chars, truncated to 10: "with_symbo"
+            ("with@symbol", "IRONCLAW_with_symbo"),
             ("with/slash", "IRONCLAW_with_slash"),
             ("with space", "IRONCLAW_with_space"),
             ("with.dot", "IRONCLAW_with_dot"),
         ];
 
-        for (vm_id, expected_chain) in test_cases {
+        for (vm_id, expected_prefix) in test_cases {
             let manager = FirewallManager::new(vm_id.to_string());
-            assert_eq!(manager.chain_name(), expected_chain);
+            let chain = manager.chain_name();
+            // Verify it starts with the expected prefix (ignoring the hash suffix)
+            assert!(
+                chain.starts_with(expected_prefix),
+                "Chain {} should start with {}",
+                chain,
+                expected_prefix
+            );
+            // Verify length constraint
+            assert!(chain.len() <= 28);
         }
     }
 
