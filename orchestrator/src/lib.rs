@@ -4,3 +4,5 @@
 //! including MCP client implementation, VM spawning, and memory management.
 
 pub mod mcp;
+#[cfg(unix)]
+pub mod vm;
