@@ -3,7 +3,25 @@
 // This module will handle the actual Firecracker VM spawning.
 // Placeholder for Phase 2 implementation.
 
-use anyhow::Result;
+use anyhow::{Result, Context, anyhow};
+use std::process::Child;
+use std::path::Path;
+use serde::Serialize;
+use tracing::{info, debug};
+use crate::vm::config::VmConfig;
+
+#[cfg(unix)]
+use tokio::net::UnixStream;
+#[cfg(unix)]
+use hyper_util::rt::TokioIo;
+#[cfg(unix)]
+use hyper::client::conn::http1::{SendRequest as HttpSendRequest, Connection as HttpConnection};
+#[cfg(unix)]
+use http_body_util::{Full, BodyExt};
+#[cfg(unix)]
+use hyper::{Request, StatusCode};
+#[cfg(unix)]
+use bytes::Bytes;
 
 /// Firecracker VM process manager
 pub struct FirecrackerProcess {
@@ -49,7 +67,7 @@ struct Action {
 ///
 /// This will be implemented in Phase 2 when we integrate Firecracker.
 /// For now, it's a placeholder to satisfy the compiler.
-pub async fn start_firecracker(_config: &str) -> Result<FirecrackerProcess> {
+pub async fn start_firecracker(_config: &VmConfig) -> Result<FirecrackerProcess> {
     // TODO: Phase 2 implementation
     // 1. Create API socket
     // 2. Start firecracker process
@@ -59,6 +77,9 @@ pub async fn start_firecracker(_config: &str) -> Result<FirecrackerProcess> {
     Ok(FirecrackerProcess {
         pid: 0,
         socket_path: "/tmp/firecracker.sock".to_string(),
+        seccomp_path: "/tmp/seccomp.json".to_string(), // Placeholder
+        child_process: None,
+        spawn_time_ms: 0.0,
     })
 }
 
@@ -227,7 +248,8 @@ mod tests {
     #[tokio::test]
     async fn test_firecracker_placeholder() {
         // Placeholder test - will be replaced with real tests in Phase 2
-        let result = start_firecracker("{}").await;
+        let config = VmConfig::default();
+        let result = start_firecracker(&config).await;
         assert!(result.is_ok());
     }
 }
