@@ -238,7 +238,7 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
         drive_id: "rootfs".to_string(),
         path_on_host: config.rootfs_path.clone(),
         is_root_device: true,
-        is_read_only: false,
+        is_read_only: true,
     };
     send_request(
         socket_path,
@@ -289,6 +289,18 @@ mod tests {
         let json = serde_json::to_string(&boot_source).unwrap();
         assert!(json.contains("kernel_image_path"));
         assert!(json.contains("boot_args"));
+    }
+
+    #[test]
+    fn test_drive_read_only_serialization() {
+        let drive = Drive {
+            drive_id: "rootfs".to_string(),
+            path_on_host: "/tmp/rootfs.ext4".to_string(),
+            is_root_device: true,
+            is_read_only: true,
+        };
+        let json = serde_json::to_string(&drive).unwrap();
+        assert!(json.contains("\"is_read_only\":true"));
     }
 
     #[tokio::test]
