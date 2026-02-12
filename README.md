@@ -97,3 +97,6 @@ IronClaw is designed with security as the primary concern:
 - **Ephemeral VMs**: Micro-VMs are destroyed after task completion
 
 See [CLAUDE.md](CLAUDE.md) for complete architecture principles.
+## Status
+
+CI workflows triggered after base branch update to main.
