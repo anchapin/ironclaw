@@ -1,39 +1,31 @@
-// Firecracker Integration
+// JIT Micro-VM - Firecracker Process Management
 //
-// This module will handle the actual Firecracker VM spawning.
-// Placeholder for Phase 2 implementation.
+// This module handles the actual Firecracker VM spawning using the HTTP API over Unix sockets.
 
-use anyhow::{Result, Context, anyhow};
-use std::process::Child;
-use std::path::Path;
+#![cfg(target_os = "linux")]
+
+use anyhow::{anyhow, Context, Result};
+use bytes::Bytes;
+use http_body_util::{BodyExt, Full};
+use hyper::{Request, StatusCode};
+use hyper_util::rt::TokioIo;
 use serde::Serialize;
-use tracing::{info, debug};
+use std::path::{Path, PathBuf};
+use std::time::Instant;
+use tokio::net::UnixStream;
+use tokio::process::{Child, Command};
+use tracing::{debug, info, warn};
+
 use crate::vm::config::VmConfig;
 
-#[cfg(unix)]
-use tokio::net::UnixStream;
-#[cfg(unix)]
-use hyper_util::rt::TokioIo;
-#[cfg(unix)]
-use hyper::client::conn::http1::{SendRequest as HttpSendRequest, Connection as HttpConnection};
-#[cfg(unix)]
-use http_body_util::{Full, BodyExt};
-#[cfg(unix)]
-use hyper::{Request, StatusCode};
-#[cfg(unix)]
-use bytes::Bytes;
-
-/// Firecracker VM process manager
+/// Represents a running Firecracker process
 pub struct FirecrackerProcess {
-    pub pid: u32,
-    pub socket_path: String,
-    pub seccomp_path: String,
-    pub child_process: Option<Child>,
+    child_process: Option<Child>,
+    vm_id: String,
     pub spawn_time_ms: f64,
 }
 
-// Firecracker API structs
-
+/// Firecracker boot source configuration
 #[derive(Serialize)]
 struct BootSource {
     kernel_image_path: String,
@@ -41,6 +33,7 @@ struct BootSource {
     boot_args: Option<String>,
 }
 
+/// Firecracker drive configuration
 #[derive(Serialize)]
 struct Drive {
     drive_id: String,
@@ -49,46 +42,103 @@ struct Drive {
     is_read_only: bool,
 }
 
+/// Firecracker machine configuration
 #[derive(Serialize)]
 struct MachineConfiguration {
     vcpu_count: u8,
     mem_size_mib: u32,
-    // ht_enabled: bool, // Optional, defaults to false
 }
 
-#[derive(Serialize)]
-struct Action {
-    action_type: String,
-}
+/// Start a Firecracker VM
+///
+/// # Arguments
+///
+/// * `config` - VM configuration
+///
+/// # Returns
+///
+/// * `FirecrackerProcess` - Running process handle
+pub async fn start_firecracker(config: &VmConfig) -> Result<FirecrackerProcess> {
+    let start_time = Instant::now();
 
-/// Start a Firecracker VM process
-///
-/// # TODO (Phase 2)
-///
-/// This will be implemented in Phase 2 when we integrate Firecracker.
-/// For now, it's a placeholder to satisfy the compiler.
-pub async fn start_firecracker(_config: &VmConfig) -> Result<FirecrackerProcess> {
-    // TODO: Phase 2 implementation
-    // 1. Create API socket
-    // 2. Start firecracker process
-    // 3. Configure VM via API
-    // 4. Return process handle
+    // 1. Verify resources exist
+    if !Path::new(&config.kernel_path).exists() {
+        return Err(anyhow!(
+            "Kernel image not found at: {}",
+            config.kernel_path
+        ));
+    }
+    if !Path::new(&config.rootfs_path).exists() {
+        return Err(anyhow!("Root filesystem not found at: {}", config.rootfs_path));
+    }
+
+    // 2. Prepare socket path
+    let socket_path = format!("/tmp/firecracker-{}.socket", config.vm_id);
+    if Path::new(&socket_path).exists() {
+        tokio::fs::remove_file(&socket_path)
+            .await
+            .context("Failed to remove existing socket")?;
+    }
+
+    // 3. Spawn Firecracker process
+    let mut command = Command::new("firecracker");
+    command.arg("--api-sock").arg(&socket_path);
+
+    // Redirect stdout/stderr to null to avoid cluttering logs
+    command.stdout(std::process::Stdio::null());
+    command.stderr(std::process::Stdio::null());
+
+    let mut child = command
+        .spawn()
+        .context("Failed to spawn firecracker process")?;
+    let pid = child
+        .id()
+        .ok_or_else(|| anyhow!("Failed to get firecracker PID"))?;
+
+    debug!("Firecracker process started with PID: {}", pid);
+
+    // 4. Wait for socket to be ready
+    let mut retries = 0;
+    while !Path::new(&socket_path).exists() {
+        if retries > 50 {
+            let _ = child.kill();
+            return Err(anyhow!("Timed out waiting for firecracker socket"));
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        retries += 1;
+    }
+
+    // 5. Configure VM via HTTP API
+    if let Err(e) = configure_vm(&socket_path, config).await {
+        let _ = child.kill().await;
+        return Err(e.context("Failed to configure VM"));
+    }
+
+    // 6. Start VM
+    if let Err(e) = send_action(&socket_path, "InstanceStart").await {
+        let _ = child.kill().await;
+        return Err(e.context("Failed to start VM instance"));
+    }
+
+    let spawn_time = start_time.elapsed().as_secs_f64() * 1000.0;
+    info!(
+        "VM {} started successfully in {:.2}ms",
+        config.vm_id, spawn_time
+    );
 
     Ok(FirecrackerProcess {
-        pid: 0,
-        socket_path: "/tmp/firecracker.sock".to_string(),
-        seccomp_path: "/tmp/seccomp.json".to_string(), // Placeholder
-        child_process: None,
-        spawn_time_ms: 0.0,
+        child_process: Some(child),
+        vm_id: config.vm_id.clone(),
+        spawn_time_ms: spawn_time,
     })
 }
 
-/// Stop a Firecracker VM process
-#[cfg(unix)]
+/// Stop a Firecracker VM
 pub async fn stop_firecracker(mut process: FirecrackerProcess) -> Result<()> {
-    info!("Stopping Firecracker VM (PID: {})", process.pid);
+    info!("Stopping VM: {}", process.vm_id);
 
-    // Try to send InstanceStart with "Exit" action? No, Send SendCtrlAltDel?
+    // Try graceful shutdown via API (optional)
+    // For now, we just kill the process as these are ephemeral VMs
     // Or just kill the process. Firecracker usually handles SIGTERM gracefully.
 
     if let Some(mut child) = process.child_process.take() {
@@ -99,21 +149,14 @@ pub async fn stop_firecracker(mut process: FirecrackerProcess) -> Result<()> {
     }
 
     // Cleanup socket
-    if Path::new(&process.socket_path).exists() {
-        let _ = tokio::fs::remove_file(&process.socket_path).await;
-    }
-
-    // Cleanup seccomp filter
-    if Path::new(&process.seccomp_path).exists() {
-        let _ = tokio::fs::remove_file(&process.seccomp_path).await;
+    let socket_path = format!("/tmp/firecracker-{}.socket", process.vm_id);
+    if Path::new(&socket_path).exists() {
+        let _ = tokio::fs::remove_file(&socket_path).await;
     }
 
     Ok(())
 }
 
-// Helper functions for API interaction
-
-#[cfg(unix)]
 async fn send_request<T: Serialize>(
     socket_path: &str,
     method: hyper::Method,
@@ -124,19 +167,17 @@ async fn send_request<T: Serialize>(
     // though reusing it would be slightly faster.
     // Given the low number of requests, this is acceptable.
 
-    let stream: UnixStream = UnixStream::connect(socket_path)
+    let stream = UnixStream::connect(socket_path)
         .await
         .context("Failed to connect to firecracker socket")?;
     let io = TokioIo::new(stream);
-    let (mut sender, conn): (HttpSendRequest, HttpConnection) =
-        hyper::client::conn::http1::handshake(io)
-            .await
-            .context("Handshake failed")?;
+    let (mut sender, conn) = hyper::client::conn::http1::handshake(io)
+        .await
+        .context("Handshake failed")?;
 
     tokio::task::spawn(async move {
         if let Err(err) = conn.await {
-            // It's expected that connection might close after response
-            debug!("Connection closed: {:?}", err);
+            warn!("Connection failed: {:?}", err);
         }
     });
 
@@ -144,18 +185,18 @@ async fn send_request<T: Serialize>(
         let json = serde_json::to_string(b).context("Failed to serialize body")?;
         Full::new(Bytes::from(json))
     } else {
-        Full::new(Bytes::from(""))
+        Full::new(Bytes::new())
     };
 
     let req = Request::builder()
         .method(method)
-        .uri(format!("http://localhost{}", path)) // Host header is required but ignored for unix socket
+        .uri(format!("http://localhost{}", path))
         .header("Content-Type", "application/json")
         .header("Accept", "application/json")
         .body(req_body)
         .context("Failed to build request")?;
 
-    let res: hyper::Response<hyper::body::Incoming> = sender
+    let res = sender
         .send_request(req)
         .await
         .context("Failed to send request")?;
@@ -164,13 +205,16 @@ async fn send_request<T: Serialize>(
         Ok(())
     } else {
         let status = res.status();
-        let body_bytes: Bytes = res.collect().await?.to_bytes();
+        let body_bytes = res.collect().await?.to_bytes();
         let body_str = String::from_utf8_lossy(&body_bytes);
-        Err(anyhow!("Firecracker API error: {} - {}", status, body_str))
+        Err(anyhow!(
+            "Request failed with status {}: {}",
+            status,
+            body_str
+        ))
     }
 }
 
-#[cfg(unix)]
 async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     // 1. Set Boot Source
     let boot_source = BootSource {
@@ -219,37 +263,79 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     Ok(())
 }
 
-#[cfg(unix)]
-async fn start_instance(socket_path: &str) -> Result<()> {
+async fn send_action(socket_path: &str, action_type: &str) -> Result<()> {
+    #[derive(Serialize)]
+    struct Action {
+        action_type: String,
+    }
+
     let action = Action {
-        action_type: "InstanceStart".to_string(),
+        action_type: action_type.to_string(),
     };
-    send_request(socket_path, hyper::Method::PUT, "/actions", Some(&action))
-        .await
-        .context("Failed to start instance")?;
-    Ok(())
-}
-
-// Dummy implementations for non-unix systems (Windows)
-#[cfg(not(unix))]
-pub async fn start_firecracker(_config: &VmConfig) -> anyhow::Result<FirecrackerProcess> {
-    anyhow::bail!("Firecracker is only supported on Unix systems")
-}
-
-#[cfg(not(unix))]
-pub async fn stop_firecracker(_process: FirecrackerProcess) -> anyhow::Result<()> {
-    Ok(())
+    send_request(
+        socket_path,
+        hyper::Method::PUT,
+        "/actions",
+        Some(&action),
+    )
+    .await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_firecracker_structs_serialization() {
+        let boot = BootSource {
+            kernel_image_path: "/tmp/vmlinux".to_string(),
+            boot_args: None,
+        };
+        let json = serde_json::to_string(&boot).unwrap();
+        assert!(json.contains("kernel_image_path"));
+
+        let drive = Drive {
+            drive_id: "1".to_string(),
+            path_on_host: "/tmp/disk".to_string(),
+            is_root_device: true,
+            is_read_only: false,
+        };
+        let json = serde_json::to_string(&drive).unwrap();
+        assert!(json.contains("drive_id"));
+    }
+
     #[tokio::test]
-    async fn test_firecracker_placeholder() {
-        // Placeholder test - will be replaced with real tests in Phase 2
-        let config = VmConfig::default();
+    async fn test_missing_kernel_image() {
+        let config = VmConfig {
+            kernel_path: "/nonexistent/kernel".to_string(),
+            ..Default::default()
+        };
         let result = start_firecracker(&config).await;
-        assert!(result.is_ok());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Kernel image not found"));
+    }
+
+    #[tokio::test]
+    async fn test_missing_rootfs() {
+        // Create dummy kernel file so we pass the first check
+        let kernel_path = "/tmp/dummy_kernel_for_test";
+        let _ = std::fs::write(kernel_path, "dummy");
+
+        let config = VmConfig {
+            kernel_path: kernel_path.to_string(),
+            rootfs_path: "/nonexistent/rootfs".to_string(),
+            ..Default::default()
+        };
+        let result = start_firecracker(&config).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Root filesystem not found"));
+
+        let _ = std::fs::remove_file(kernel_path);
     }
 }

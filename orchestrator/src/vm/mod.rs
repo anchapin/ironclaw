@@ -7,28 +7,55 @@
 // - Ephemeral: VM destroyed after task completion
 // - Security: No host execution, full isolation
 
-pub mod firecracker;
 pub mod config;
+
+#[cfg(target_os = "linux")]
+pub mod firecracker;
+#[cfg(target_os = "linux")]
+pub mod firewall;
+#[cfg(target_os = "linux")]
 pub mod seccomp;
+#[cfg(target_os = "linux")]
+pub mod vsock;
 
 // Prototype module for feasibility testing
 #[cfg(feature = "vm-prototype")]
 pub mod prototype;
 
+#[cfg(test)]
+mod tests;
+
 use anyhow::Result;
+#[cfg(target_os = "linux")]
 use std::sync::Arc;
+#[cfg(target_os = "linux")]
 use tokio::sync::Mutex;
 
 use crate::vm::config::VmConfig;
+
+#[cfg(target_os = "linux")]
 use crate::vm::firecracker::{start_firecracker, stop_firecracker, FirecrackerProcess};
+#[cfg(target_os = "linux")]
+use crate::vm::firewall::FirewallManager;
+#[cfg(target_os = "linux")]
 use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
 
 /// VM handle for managing lifecycle
 pub struct VmHandle {
     pub id: String,
-    #[allow(dead_code)] // Field is unused on Windows but required on Linux
+    #[cfg(target_os = "linux")]
     process: Arc<Mutex<Option<FirecrackerProcess>>>,
     pub spawn_time_ms: f64,
+    config: VmConfig,
+    #[cfg(target_os = "linux")]
+    firewall_manager: Option<FirewallManager>,
+}
+
+impl VmHandle {
+    /// Get the vsock socket path for this VM
+    pub fn vsock_path(&self) -> Option<&str> {
+        self.config.vsock_path.as_deref()
+    }
 }
 
 /// Spawn a new JIT Micro-VM
@@ -77,25 +104,7 @@ pub async fn spawn_vm(task_id: &str) -> Result<VmHandle> {
 /// # Returns
 ///
 /// * `VmHandle` - Handle for managing the VM
-///
-/// # Example
-///
-/// ```no_run
-/// use ironclaw_orchestrator::vm::{spawn_vm_with_config, config::VmConfig};
-/// use ironclaw_orchestrator::vm::seccomp::{SeccompFilter, SeccompLevel};
-///
-/// #[tokio::main]
-/// async fn main() -> anyhow::Result<()> {
-///     let config = VmConfig::new("my-task".to_string());
-///     let config_with_seccomp = VmConfig {
-///         seccomp_filter: Some(SeccompFilter::new(SeccompLevel::Basic)),
-///         ..config
-///     };
-///
-///     let handle = spawn_vm_with_config("my-task", &config_with_seccomp).await?;
-///     Ok(())
-/// }
-/// ```
+#[cfg(target_os = "linux")]
 pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<VmHandle> {
     tracing::info!("Spawning VM for task: {}", task_id);
 
@@ -109,6 +118,46 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
         config.clone()
     };
 
+    // Configure firewall to block all network traffic
+    let firewall_manager = FirewallManager::new(config_with_seccomp.vm_id.clone());
+
+    // Apply firewall rules (may fail if not root)
+    match firewall_manager.configure_isolation() {
+        Ok(_) => {
+            tracing::info!(
+                "Firewall isolation configured for VM: {}",
+                config_with_seccomp.vm_id
+            );
+        }
+        Err(e) => {
+            tracing::warn!(
+                "Failed to configure firewall (running without root?): {}. \
+                VM will still have networking disabled in config, but firewall rules are not applied.",
+                e
+            );
+            // Continue anyway - networking is still disabled in config
+        }
+    }
+
+    // Verify firewall rules are active (if configured)
+    match firewall_manager.verify_isolation() {
+        Ok(true) => {
+            tracing::info!(
+                "Firewall isolation verified for VM: {}",
+                config_with_seccomp.vm_id
+            );
+        }
+        Ok(false) => {
+            tracing::debug!(
+                "Firewall rules not active for VM: {}",
+                config_with_seccomp.vm_id
+            );
+        }
+        Err(e) => {
+            tracing::debug!("Failed to verify firewall rules: {}", e);
+        }
+    }
+
     // Start Firecracker VM
     let process = start_firecracker(&config_with_seccomp).await?;
 
@@ -118,7 +167,16 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
         id: task_id.to_string(),
         process: Arc::new(Mutex::new(Some(process))),
         spawn_time_ms: spawn_time,
+        config: config.clone(),
+        firewall_manager: Some(firewall_manager),
     })
+}
+
+/// Spawn a new JIT Micro-VM with custom configuration (Stub for non-Linux)
+#[cfg(not(target_os = "linux"))]
+#[allow(unused_variables)]
+pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<VmHandle> {
+    anyhow::bail!("JIT Micro-VMs are only supported on Linux")
 }
 
 /// Destroy a VM (ephemeral cleanup)
@@ -145,6 +203,7 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
 ///     Ok(())
 /// }
 /// ```
+#[cfg(target_os = "linux")]
 pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
     tracing::info!("Destroying VM: {}", handle.id);
 
@@ -160,40 +219,34 @@ pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[cfg(not(target_os = "linux"))]
+#[allow(unused_variables)]
+pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
+    Ok(())
+}
 
-    #[tokio::test]
-    async fn test_vm_spawn_and_destroy() {
-        // This test requires actual Firecracker installation
-        // Skip in CI if not available
-        if !std::path::Path::new("/usr/local/bin/firecracker").exists() {
-            return;
-        }
-
-        // Ensure test assets exist
-        let _ = std::fs::create_dir_all("/tmp/ironclaw-fc-test");
-
-        let result = spawn_vm("test-task").await;
-
-        // If assets don't exist, we expect an error
-        if result.is_err() {
-            println!("Skipping test: Firecracker assets not available");
-            return;
-        }
-
-        let handle = result.unwrap();
-        assert_eq!(handle.id, "test-task");
-        assert!(handle.spawn_time_ms > 0.0);
-
-        destroy_vm(handle).await.unwrap();
+/// Verify that a VM is properly network-isolated
+///
+/// # Arguments
+///
+/// * `handle` - VM handle to verify
+///
+/// # Returns
+///
+/// * `Ok(true)` - VM is properly isolated
+/// * `Ok(false)` - VM is not isolated
+/// * `Err(_)` - Failed to check isolation status
+#[cfg(target_os = "linux")]
+pub fn verify_network_isolation(handle: &VmHandle) -> Result<bool> {
+    if let Some(ref firewall) = handle.firewall_manager {
+        firewall.verify_isolation()
+    } else {
+        Ok(false)
     }
+}
 
-    #[test]
-    fn test_vm_id_format() {
-        let task_id = "task-123";
-        let expected_id = task_id.to_string();
-        assert_eq!(expected_id, "task-123");
-    }
+#[cfg(not(target_os = "linux"))]
+#[allow(unused_variables)]
+pub fn verify_network_isolation(handle: &VmHandle) -> Result<bool> {
+    Ok(false)
 }
