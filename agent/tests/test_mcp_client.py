@@ -176,10 +176,10 @@ class TestMcpClientLifecycle:
         call_args = mock_popen.call_args
         assert call_args[0][0] == expected_cmd
 
-        # Check that stdin/stdout/stderr are set to PIPE
+        # Check that stdin/stdout are set to PIPE, stderr is not set (default=None to inherit)
         assert call_args[1]["stdin"] == subprocess.PIPE
         assert call_args[1]["stdout"] == subprocess.PIPE
-        assert call_args[1]["stderr"] == subprocess.PIPE
+        assert "stderr" not in call_args[1]
 
     @patch("subprocess.Popen")
     def test_spawn_transitions_to_connected_state(self, mock_popen):
