@@ -266,8 +266,6 @@ pub struct SeccompAuditLog {
     violation_counts: Arc<RwLock<HashMap<String, usize>>>,
 }
 
-const MAX_SECCOMP_LOG_ENTRIES: usize = 10_000;
-
 impl Default for SeccompAuditLog {
     fn default() -> Self {
         Self {
