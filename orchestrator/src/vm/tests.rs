@@ -5,30 +5,11 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::vm::config::VmConfig;
-    use crate::vm::{destroy_vm, spawn_vm, spawn_vm_with_config, verify_network_isolation};
-    use std::fs::File;
-    use std::io::Write;
+    use crate::vm::{destroy_vm, spawn_vm, verify_network_isolation};
+    use std::path::Path;
 
-    /// Create temporary stub resources for testing
-    /// Tests should fail if code can't handle these correctly
-    fn create_test_resources() -> anyhow::Result<(String, String)> {
-        let temp_dir = std::env::temp_dir();
-        let kernel_path = temp_dir.join("test-vmlinux");
-        let rootfs_path = temp_dir.join("test-rootfs.ext4");
-
-        // Create minimal stub kernel (just needs to exist for spawn_vm path validation)
-        let mut kernel_file = File::create(&kernel_path)?;
-        kernel_file.write_all(b"stub_kernel")?;
-
-        // Create minimal stub rootfs
-        let mut rootfs_file = File::create(&rootfs_path)?;
-        rootfs_file.write_all(b"stub_rootfs")?;
-
-        Ok((
-            kernel_path.to_str().unwrap().to_string(),
-            rootfs_path.to_str().unwrap().to_string(),
-        ))
+    fn firecracker_available() -> bool {
+        Path::new("./resources/vmlinux").exists()
     }
 
     /// Test that VM cannot be created with networking enabled
@@ -44,28 +25,14 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("MUST be disabled"));
     }
 
-    // Helper to check if Firecracker resources are available
-    fn resources_available() -> bool {
-        std::path::Path::new("/usr/local/bin/firecracker").exists()
-            && std::path::Path::new("./resources/vmlinux").exists()
-            && std::path::Path::new("./resources/rootfs.ext4").exists()
-    }
-
     /// Test that multiple VMs can be spawned with unique firewall chains
     #[tokio::test]
-    #[cfg(target_os = "linux")]
     async fn test_multiple_vms_isolation() {
-        let handle1 = match spawn_vm("task-1").await {
-            Ok(h) => h,
-            Err(_) => return, // Skip if resources missing
-        };
-        let handle2 = match spawn_vm("task-2").await {
-            Ok(h) => h,
-            Err(_) => {
-                destroy_vm(handle1).await.unwrap();
-                return;
-            }
-        };
+        if !firecracker_available() {
+            return;
+        }
+        let handle1 = spawn_vm("task-1").await.unwrap();
+        let handle2 = spawn_vm("task-2").await.unwrap();
 
         // Verify they have different IDs
         assert_ne!(handle1.id, handle2.id);
@@ -86,12 +53,11 @@ mod tests {
 
     /// Test that firewall rules are verified correctly
     #[tokio::test]
-    #[cfg(target_os = "linux")]
     async fn test_firewall_verification() {
-        let handle = match spawn_vm("firewall-test").await {
-            Ok(h) => h,
-            Err(_) => return, // Skip
-        };
+        if !firecracker_available() {
+            return;
+        }
+        let handle = spawn_vm("firewall-test").await.unwrap();
 
         // Verify isolation (may be false if not running as root)
         let isolated = verify_network_isolation(&handle);
@@ -109,19 +75,12 @@ mod tests {
 
     /// Test that vsock paths are unique per VM
     #[tokio::test]
-    #[cfg(target_os = "linux")]
     async fn test_vsock_paths_are_unique() {
-        let handle1 = match spawn_vm("vsock-unique-1").await {
-            Ok(h) => h,
-            Err(_) => return, // Skip
-        };
-        let handle2 = match spawn_vm("vsock-unique-2").await {
-            Ok(h) => h,
-            Err(_) => {
-                destroy_vm(handle1).await.unwrap();
-                return;
-            }
-        };
+        if !firecracker_available() {
+            return;
+        }
+        let handle1 = spawn_vm("vsock-unique-1").await.unwrap();
+        let handle2 = spawn_vm("vsock-unique-2").await.unwrap();
 
         let path1 = handle1.vsock_path().unwrap();
         let path2 = handle2.vsock_path().unwrap();
@@ -162,9 +121,8 @@ mod tests {
         assert!(config.memory_mb >= 128);
     }
 
-    /// Test that firewall manager properly sanitizes VM IDs and uses hashing
+    /// Test that firewall manager properly sanitizes VM IDs
     #[test]
-    #[cfg(target_os = "linux")]
     fn test_firewall_sanitizes_vm_ids() {
         use crate::vm::firewall::FirewallManager;
 
@@ -179,16 +137,7 @@ mod tests {
 
         for (vm_id, expected_chain) in test_cases {
             let manager = FirewallManager::new(vm_id.to_string());
-            let chain = manager.chain_name();
-
-            assert!(chain.starts_with("IRONCLAW_"));
-            assert!(chain.len() <= 28, "Chain name too long: {}", chain);
-            // Check that it contains only safe chars (alphanumeric and underscore)
-            assert!(
-                chain.chars().all(|c| c.is_alphanumeric() || c == '_'),
-                "Chain name contains invalid chars: {}",
-                chain
-            );
+            assert_eq!(manager.chain_name(), expected_chain);
         }
     }
 
@@ -267,13 +216,12 @@ mod tests {
 
     /// Test edge case: VM with very long ID
     #[tokio::test]
-    #[cfg(target_os = "linux")]
     async fn test_vm_with_long_id() {
+        if !firecracker_available() {
+            return;
+        }
         let long_id = "a".repeat(20); // 20 chars + "vm-" prefix = 24 chars
-        let handle = match spawn_vm(&long_id).await {
-            Ok(h) => h,
-            Err(_) => return, // Skip
-        };
+        let handle = spawn_vm(&long_id).await.unwrap();
 
         // Verify ID is handled correctly
         assert!(handle.id.len() <= 128); // Reasonable limit
@@ -290,13 +238,12 @@ mod tests {
 
     /// Test edge case: VM with special characters in ID
     #[tokio::test]
-    #[cfg(target_os = "linux")]
     async fn test_vm_with_special_chars() {
+        if !firecracker_available() {
+            return;
+        }
         let special_id = "test-vm-123"; // Use a simpler ID with safe chars
-        let handle = match spawn_vm(special_id).await {
-            Ok(h) => h,
-            Err(_) => return, // Skip
-        };
+        let handle = spawn_vm(special_id).await.unwrap();
 
         // Verify firewall chain name is sanitized
         let chain = handle.firewall_manager.as_ref().unwrap().chain_name();
@@ -336,7 +283,6 @@ mod tests {
 
     /// Property-based test: All firewall chain names must be valid
     #[test]
-    #[cfg(target_os = "linux")]
     fn test_property_firewall_chains_valid() {
         use crate::vm::firewall::FirewallManager;
 
@@ -373,12 +319,11 @@ mod tests {
 
     /// Test: Verify cleanup happens on VM destruction
     #[tokio::test]
-    #[cfg(target_os = "linux")]
     async fn test_vm_cleanup_on_destruction() {
-        let handle = match spawn_vm("cleanup-test").await {
-            Ok(h) => h,
-            Err(_) => return, // Skip
-        };
+        if !firecracker_available() {
+            return;
+        }
+        let handle = spawn_vm("cleanup-test").await.unwrap();
 
         let chain_name = handle
             .firewall_manager
@@ -400,37 +345,15 @@ mod tests {
 
     /// Test: Multiple rapid VM spawns and destroys
     #[tokio::test]
-    #[cfg(target_os = "linux")]
     async fn test_rapid_vm_lifecycle() {
-        if !resources_available() {
+        if !firecracker_available() {
             return;
         }
         for i in 0..10 {
-            let handle = match spawn_vm(&format!("rapid-{}", i)).await {
-                Ok(h) => h,
-                Err(_) => continue, // Skip if failing
-            };
+            let handle = spawn_vm(&format!("rapid-{}", i)).await.unwrap();
             assert!(handle.vsock_path().is_some());
             destroy_vm(handle).await.unwrap();
         }
         tracing::info!("Rapid VM lifecycle test completed successfully");
-    }
-
-    /// Helper function to check if Firecracker environment is available
-    fn ensure_firecracker_env() -> bool {
-        // Check if firecracker binary exists
-        if !std::path::Path::new("/usr/local/bin/firecracker").exists()
-            && !std::path::Path::new("/usr/bin/firecracker").exists()
-        {
-            return false;
-        }
-
-        // Check if test resources directory exists
-        let test_dir = std::path::Path::new("/tmp/ironclaw-fc-test");
-        if !test_dir.exists() {
-            let _ = std::fs::create_dir_all(test_dir);
-        }
-
-        true
     }
 }
