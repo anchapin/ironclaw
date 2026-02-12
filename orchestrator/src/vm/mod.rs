@@ -34,6 +34,7 @@ pub struct VmHandle {
     pub id: String,
     #[allow(dead_code)] // Field is unused on Windows but required on Linux
     process: Arc<Mutex<Option<FirecrackerProcess>>>,
+    #[cfg(target_os = "linux")]
     #[allow(dead_code)]
     pub firewall_manager: Option<FirewallManager>,
     pub spawn_time_ms: f64,
