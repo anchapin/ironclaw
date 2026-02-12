@@ -138,7 +138,7 @@ fn ui(f: &mut Frame, action: &Action) {
         .split(size);
 
     // 1. Header
-    let header = Paragraph::new(format!("Action Approval Required: {}", action.kind.to_string()))
+    let header = Paragraph::new(format!("Action Approval Required: {}", action.kind))
         .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
         .alignment(Alignment::Center)
         .block(
