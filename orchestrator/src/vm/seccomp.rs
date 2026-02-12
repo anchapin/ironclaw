@@ -257,6 +257,8 @@ pub struct SeccompAuditLog {
     violation_counts: Arc<RwLock<HashMap<String, usize>>>,
 }
 
+const MAX_SECCOMP_LOG_ENTRIES: usize = 10_000;
+
 impl Default for SeccompAuditLog {
     fn default() -> Self {
         Self {
@@ -494,6 +496,33 @@ mod tests {
         let result = validate_seccomp_rules(&filter);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("audit logging"));
+    }
+
+    #[tokio::test]
+    async fn test_audit_log_capacity_limit() {
+        let log = SeccompAuditLog::new();
+
+        // Log more than MAX_SECCOMP_LOG_ENTRIES
+        // Use a small loop count + manual truncation check logic or just trust the constant
+        // For test speed, we might want to check against the constant
+        // But 10,000 is small enough for a test (~ms)
+
+        for i in 0..(MAX_SECCOMP_LOG_ENTRIES + 5) {
+            log.log_blocked_syscall("vm-capacity", "socket", i as u32)
+                .await
+                .unwrap();
+        }
+
+        let entries = log.get_entries_for_vm("vm-capacity").await;
+        assert_eq!(entries.len(), MAX_SECCOMP_LOG_ENTRIES);
+
+        // Verify we kept the latest entries (FIFO)
+        // First entry should be index 5 (since 0..4 popped)
+        assert_eq!(entries[0].pid, 5);
+        assert_eq!(
+            entries.last().unwrap().pid,
+            (MAX_SECCOMP_LOG_ENTRIES + 4) as u32
+        );
     }
 
     #[tokio::test]
