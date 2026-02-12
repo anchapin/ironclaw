@@ -3,10 +3,21 @@
 // This module will handle the actual Firecracker VM spawning.
 
 use crate::vm::config::VmConfig;
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
+
+#[cfg(unix)]
+use anyhow::{anyhow, Context};
+
+#[cfg(unix)]
 use serde::Serialize;
+
+#[cfg(unix)]
 use std::path::Path;
+
+#[cfg(unix)]
 use std::time::Instant;
+
+#[cfg(unix)]
 use tracing::{debug, info};
 
 #[cfg(unix)]
@@ -155,6 +166,7 @@ pub async fn start_firecracker(config: &VmConfig) -> Result<FirecrackerProcess> 
 /// Start a Firecracker VM process (Non-Unix implementation)
 #[cfg(not(unix))]
 pub async fn start_firecracker(_config: &VmConfig) -> Result<FirecrackerProcess> {
+    // Note: anyhow::bail! works without explicit import if anyhow crate is available
     anyhow::bail!("Firecracker is only supported on Unix systems")
 }
 
