@@ -9,22 +9,12 @@
 
 pub mod config;
 pub mod firecracker;
-<<<<<<< HEAD
-=======
-#[cfg(unix)]
->>>>>>> 4b6ceae (fix: link vm module and resolve compilation errors)
 pub mod firewall;
 pub mod seccomp;
 
 // Prototype module for feasibility testing
-<<<<<<< HEAD
 #[cfg(feature = "vm-prototype")]
 pub mod prototype;
-=======
-// TODO: Add vm-prototype feature to Cargo.toml when prototype module is ready
-// #[cfg(feature = "vm-prototype")]
-// pub mod prototype;
->>>>>>> 4b6ceae (fix: link vm module and resolve compilation errors)
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -32,25 +22,17 @@ use tokio::sync::Mutex;
 
 use crate::vm::config::VmConfig;
 use crate::vm::firecracker::{start_firecracker, stop_firecracker, FirecrackerProcess};
-#[cfg(unix)]
 use crate::vm::firewall::FirewallManager;
 use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
 
 /// VM handle for managing lifecycle
 pub struct VmHandle {
     pub id: String,
-<<<<<<< HEAD
     #[allow(dead_code)] // Field is unused on Windows but required on Linux
     process: Arc<Mutex<Option<FirecrackerProcess>>>,
     #[allow(dead_code)]
     pub firewall_manager: Option<FirewallManager>,
-=======
-    pub process: Arc<Mutex<Option<FirecrackerProcess>>>,
->>>>>>> 4b6ceae (fix: link vm module and resolve compilation errors)
     pub spawn_time_ms: f64,
-    pub config: VmConfig,
-    #[cfg(unix)]
-    pub firewall_manager: Option<FirewallManager>,
 }
 
 /// Spawn a new JIT Micro-VM
