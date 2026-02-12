@@ -16,7 +16,9 @@ fn test_cli_help() {
     cmd.arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Secure agentic AI runtime with JIT Micro-VMs"));
+        .stdout(predicate::str::contains(
+            "Secure agentic AI runtime with JIT Micro-VMs",
+        ));
 }
 
 #[test]
@@ -25,7 +27,9 @@ fn test_cli_run_missing_task() {
     cmd.arg("run")
         .assert()
         .failure() // Should fail because 'task' argument is required
-        .stderr(predicate::str::contains("required arguments were not provided"));
+        .stderr(predicate::str::contains(
+            "required arguments were not provided",
+        ));
 }
 
 #[test]
