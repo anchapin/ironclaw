@@ -9,6 +9,7 @@
 
 pub mod config;
 pub mod firecracker;
+pub mod firewall;
 pub mod seccomp;
 
 // Prototype module for feasibility testing
