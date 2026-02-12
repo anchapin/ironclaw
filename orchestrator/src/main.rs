@@ -55,16 +55,6 @@ enum Commands {
         #[arg(long)]
         list_tools: bool,
     },
-    /// Run as MCP client/server
-    Mcp {
-        /// Transport type
-        #[arg(default_value = "stdio")]
-        transport: String,
-
-        /// Command to run
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        command: Vec<String>,
-    },
 }
 
 #[tokio::main]
@@ -80,7 +70,6 @@ async fn main() -> Result<()> {
     };
     tracing_subscriber::fmt()
         .with_max_level(filter)
-        .with_writer(std::io::stderr)
         .with_env_filter(
             EnvFilter::builder()
                 .with_default_directive(filter.into())
@@ -107,21 +96,6 @@ async fn main() -> Result<()> {
         }) => {
             info!("Testing MCP connection...");
             test_mcp(command, args, list_tools).await?;
-        }
-        Some(Commands::Mcp {
-            transport: _,
-            command,
-        }) => {
-            if command.is_empty() {
-                anyhow::bail!("No command specified for MCP agent");
-            }
-            // Assume server name from first arg
-            let server_name = command[0].clone();
-
-            use ironclaw_orchestrator::agent_rpc::{run_agent_rpc_server, AgentConfig};
-
-            let config = AgentConfig::new(server_name, command);
-            run_agent_rpc_server(config).await?;
         }
         None => {
             info!("No command specified. Use 'ironclaw --help' for usage.");

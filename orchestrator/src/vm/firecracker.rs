@@ -2,19 +2,27 @@
 //
 // This module handles the actual Firecracker VM spawning using the HTTP API over Unix sockets.
 
-#![allow(unused_imports)]
-
+#[cfg(unix)]
 use anyhow::{anyhow, Context, Result};
+#[cfg(unix)]
 use bytes::Bytes;
+#[cfg(unix)]
 use http_body_util::{BodyExt, Full};
+#[cfg(unix)]
 use hyper::{Request, StatusCode};
+#[cfg(unix)]
 use hyper_util::rt::TokioIo;
 #[cfg(unix)]
 use serde::Serialize;
+#[cfg(unix)]
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
 use std::time::Instant;
+#[cfg(unix)]
 use tokio::net::UnixStream;
+#[cfg(unix)]
 use tokio::process::{Child, Command};
+#[cfg(unix)]
 use tracing::{debug, info};
 
 use crate::vm::config::VmConfig;
@@ -24,7 +32,10 @@ use crate::vm::config::VmConfig;
 pub struct FirecrackerProcess {
     pub pid: u32,
     pub socket_path: String,
+    #[cfg(unix)]
     pub child_process: Option<Child>,
+    #[cfg(not(unix))]
+    pub child_process: Option<()>, // Dummy for non-unix
     pub spawn_time_ms: f64,
 }
 
@@ -70,6 +81,7 @@ struct Action {
 }
 
 /// Start a Firecracker VM process
+#[cfg(unix)]
 pub async fn start_firecracker(config: &VmConfig) -> Result<FirecrackerProcess> {
     let start_time = Instant::now();
     info!("Starting Firecracker VM: {}", config.vm_id);
@@ -155,6 +167,7 @@ pub async fn start_firecracker(config: &VmConfig) -> Result<FirecrackerProcess> 
 }
 
 /// Stop a Firecracker VM process
+#[cfg(unix)]
 pub async fn stop_firecracker(mut process: FirecrackerProcess) -> Result<()> {
     info!("Stopping Firecracker VM (PID: {})", process.pid);
 
@@ -178,6 +191,7 @@ pub async fn stop_firecracker(mut process: FirecrackerProcess) -> Result<()> {
 
 // Helper functions for API interaction
 
+#[cfg(unix)]
 async fn send_request<T: Serialize>(
     socket_path: &str,
     method: hyper::Method,
@@ -233,6 +247,7 @@ async fn send_request<T: Serialize>(
     }
 }
 
+#[cfg(unix)]
 async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     // 1. Set Boot Source
     let boot_source = BootSource {
@@ -302,6 +317,7 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     Ok(())
 }
 
+#[cfg(unix)]
 async fn start_instance(socket_path: &str) -> Result<()> {
     let action = Action {
         action_type: "InstanceStart".to_string(),
@@ -309,6 +325,17 @@ async fn start_instance(socket_path: &str) -> Result<()> {
     send_request(socket_path, hyper::Method::PUT, "/actions", Some(&action))
         .await
         .context("Failed to start instance")?;
+    Ok(())
+}
+
+// Dummy implementations for non-unix systems (Windows)
+#[cfg(not(unix))]
+pub async fn start_firecracker(_config: &VmConfig) -> anyhow::Result<FirecrackerProcess> {
+    anyhow::bail!("Firecracker is only supported on Unix systems")
+}
+
+#[cfg(not(unix))]
+pub async fn stop_firecracker(_process: FirecrackerProcess) -> anyhow::Result<()> {
     Ok(())
 }
 
@@ -329,6 +356,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(unix)]
     async fn test_missing_kernel_image() {
         let config = VmConfig {
             kernel_path: "/non/existent/kernel".to_string(),
@@ -343,6 +371,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(unix)]
     async fn test_missing_rootfs() {
         // Create dummy kernel file to pass first check
         let kernel_path = std::env::temp_dir().join("dummy_kernel");
