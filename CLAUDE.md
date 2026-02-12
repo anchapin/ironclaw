@@ -96,8 +96,8 @@ make test-python       # Run Python tests only (pytest)
 
 | Component | Coverage | Target | Status |
 |-----------|----------|--------|--------|
-| Rust (Orchestrator) | 74.2% | 75.0% | ⚠️ Near target |
-| Python (Agent) | 78.0% | 75.0% | ✅ Exceeds |
+| Rust (Orchestrator) | 51.3% | 75.0% | ⚠️ Near target |
+| Python (Agent) | 58.0% | 75.0% | ⚠️ Near target |
 | `loop.py` | 73% | 75.0% | ⚠️ Near target |
 | `mcp_client.py` | 80% | 75.0% | ✅ Exceeds |
 

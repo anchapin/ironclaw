@@ -2,8 +2,6 @@
 //
 // This module handles the actual Firecracker VM spawning using the HTTP API over Unix sockets.
 
-#![allow(unused_imports)]
-
 use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
@@ -49,6 +47,13 @@ struct MachineConfiguration {
     vcpu_count: u8,
     mem_size_mib: u32,
     // ht_enabled: bool, // Optional, defaults to false
+}
+
+#[derive(Serialize)]
+struct Vsock {
+    vsock_id: String,
+    guest_cid: u32,
+    uds_path: String,
 }
 
 #[derive(Serialize)]
@@ -240,7 +245,7 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
         drive_id: "rootfs".to_string(),
         path_on_host: config.rootfs_path.clone(),
         is_root_device: true,
-        is_read_only: false,
+        is_read_only: true, // Set to read-only to prevent corruption
     };
     send_request(
         socket_path,
@@ -264,6 +269,18 @@ async fn configure_vm(socket_path: &str, config: &VmConfig) -> Result<()> {
     )
     .await
     .context("Failed to configure machine")?;
+
+    // 4. Set Vsock (if configured)
+    if let Some(vsock_path) = &config.vsock_path {
+        let vsock = Vsock {
+            vsock_id: "root".to_string(),
+            guest_cid: 3,
+            uds_path: vsock_path.clone(),
+        };
+        send_request(socket_path, hyper::Method::PUT, "/vsock", Some(&vsock))
+            .await
+            .context("Failed to configure vsock")?;
+    }
 
     Ok(())
 }
