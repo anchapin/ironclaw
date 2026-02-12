@@ -11,7 +11,7 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use ironclaw_orchestrator::mcp::{McpClient, StdioTransport};
-use ironclaw_orchestrator::vm::{self, destroy_vm};
+use ironclaw_orchestrator::vm::{self, destroy_vm, agent::execute_agent};
 use serde_json::json;
 use tracing::{error, info, Level};
 use tracing_subscriber::EnvFilter;
