@@ -2,8 +2,8 @@
 //
 // This module handles the actual Firecracker VM spawning.
 
-use anyhow::{anyhow, Context, Result};
 use crate::vm::config::VmConfig;
+use anyhow::{anyhow, Context, Result};
 use serde::Serialize;
 use std::path::Path;
 #[cfg(not(unix))]
@@ -22,10 +22,10 @@ use hyper::client::conn::http1::{Connection as HttpConnection, SendRequest as Ht
 use hyper::{Request, StatusCode};
 #[cfg(unix)]
 use hyper_util::rt::TokioIo;
-#[cfg(unix)]
-use tokio::net::UnixStream;
 use std::process::Stdio;
 use std::time::Instant;
+#[cfg(unix)]
+use tokio::net::UnixStream;
 
 /// Firecracker VM process manager
 pub struct FirecrackerProcess {
@@ -161,8 +161,10 @@ pub async fn stop_firecracker(mut process: FirecrackerProcess) -> Result<()> {
     }
 
     // Cleanup seccomp filter
-    let seccomp_path = format!("/tmp/firecracker_{}_seccomp.json",
-        process.socket_path
+    let seccomp_path = format!(
+        "/tmp/firecracker_{}_seccomp.json",
+        process
+            .socket_path
             .rsplit('_')
             .nth(1)
             .unwrap_or(&process.socket_path)
