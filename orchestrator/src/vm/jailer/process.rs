@@ -1,3 +1,4 @@
+#![cfg(unix)]
 // Jailer Process Management
 //
 // Handles spawning and managing Firecracker processes via Jailer
@@ -360,12 +361,10 @@ async fn start_instance(socket_path: &str) -> Result<()> {
 }
 
 fn verify_jailer_executable() -> Result<()> {
-    #[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::fs::PermissionsExt;
     let jailer_path = Path::new("/usr/local/bin/jailer");
     if !jailer_path.exists() { anyhow::bail!("Jailer binary not found"); }
     let metadata = jailer_path.metadata()?;
-    #[cfg(unix)]
     if metadata.permissions().mode() & 0o111 == 0 { anyhow::bail!("Jailer binary is not executable"); }
     Ok(())
 }
