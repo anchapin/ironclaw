@@ -18,6 +18,7 @@ mod tests {
         let result = config.validate();
         assert!(result.is_err());
         assert!(result
+            .as_ref()
             .unwrap_err()
             .to_string()
             .contains("Networking MUST be disabled"));
