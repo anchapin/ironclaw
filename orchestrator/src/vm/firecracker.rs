@@ -471,13 +471,14 @@ mod tests {
         assert!(process.spawn_time_ms > 0.0);
 
         // Verify socket exists
-        assert!(std::path::Path::new(&process.socket_path).exists());
+        let socket_path = process.socket_path.clone();
+        assert!(std::path::Path::new(&socket_path).exists());
 
         // Stop
         stop_firecracker(process).await.unwrap();
 
         // Verify cleanup
-        assert!(!std::path::Path::new(&process.socket_path).exists());
+        assert!(!std::path::Path::new(&socket_path).exists());
 
         println!("Firecracker lifecycle test completed successfully");
     }
@@ -502,7 +503,7 @@ mod tests {
             return;
         }
 
-        let config = VmConfig {
+        let _config = VmConfig {
             vm_id: "perf-test-vm".to_string(),
             kernel_path: kernel_path.to_string(),
             rootfs_path: rootfs_path.to_string(),
