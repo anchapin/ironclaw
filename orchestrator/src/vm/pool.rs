@@ -298,7 +298,7 @@ impl SnapshotPool {
             max_size: self.config.pool_size,
             oldest_snapshot_age_secs: oldest_snapshot.map(|d| d.as_secs()),
             newest_snapshot_age_secs: newest_snapshot.map(|d| d.as_secs()),
-            active_vms: 0, // TODO: Implement active VM tracking
+            active_vms: 0,   // TODO: Implement active VM tracking
             queued_tasks: 0, // TODO: Implement task queue tracking
         }
     }
