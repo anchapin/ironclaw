@@ -76,6 +76,16 @@ impl JailerConfig {
         }
     }
 
+    /// Create a test config with paths that work in test environments
+    /// Uses /dev/null for exec_file which always exists
+    #[cfg(test)]
+    pub fn test_config(id: String) -> Self {
+        let mut config = Self::new(id);
+        config.exec_file = PathBuf::from("/dev/null");
+        config.chroot_base_dir = PathBuf::from("/tmp");
+        config
+    }
+
     /// Set custom UID/GID for privilege separation
     pub fn with_user(mut self, uid: u32, gid: u32) -> Self {
         self.uid = uid;
@@ -217,30 +227,26 @@ mod tests {
 
     #[test]
     fn test_config_validation_valid_id() {
-        let mut config = JailerConfig::new("valid-vm-id-123".to_string());
-        // Use existing paths for validation to pass in CI/test environments
-        config.exec_file = std::env::current_exe().unwrap_or(PathBuf::from("cargo"));
-        config.chroot_base_dir = std::env::temp_dir().join("jailer");
-        // Ensure parent of chroot base exists (temp_dir exists)
+        let config = JailerConfig::test_config("valid-vm-id-123".to_string());
         assert!(config.validate().is_ok());
     }
 
     #[test]
     fn test_config_validation_empty_id() {
-        let config = JailerConfig::new("".to_string());
+        let config = JailerConfig::test_config("".to_string());
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn test_config_invalid_chars_in_id() {
-        let config = JailerConfig::new("invalid@id#with$symbols".to_string());
+        let config = JailerConfig::test_config("invalid@id#with$symbols".to_string());
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn test_config_id_too_long() {
         let long_id = "a".repeat(65); // 65 chars > 64 limit
-        let config = JailerConfig::new(long_id);
+        let config = JailerConfig::test_config(long_id);
         assert!(config.validate().is_err());
     }
 
@@ -297,5 +303,35 @@ mod tests {
 
         assert!(args.contains(&"--cgroup".to_string()));
         assert!(args.contains(&"cpu.shares=2048".to_string()));
+    }
+}
+
+// Property-based tests with Proptest
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn prop_vm_id_alphanumeric_or_dash(id in "[a-zA-Z0-9-\\-]{1,64}") {
+            // Valid IDs should pass validation
+            let config = JailerConfig::test_config(id.to_string());
+            prop_assert!(config.validate().is_ok());
+        }
+
+        #[test]
+        fn prop_vm_id_empty_or_too_long(id in ".{0,}.{65,}") {
+            // Empty or too long IDs should fail validation
+            let config = JailerConfig::test_config(id.to_string());
+            prop_assert!(config.validate().is_err());
+        }
+
+        #[test]
+        fn prop_vm_id_invalid_chars(id in "[^a-zA-Z0-9\\-]+") {
+            // IDs with invalid chars should fail validation
+            let config = JailerConfig::test_config(id.to_string());
+            prop_assert!(config.validate().is_err());
+        }
     }
 }
