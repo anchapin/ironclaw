@@ -80,11 +80,10 @@ impl JailerConfig {
     /// Uses /dev/null for exec_file which always exists
     #[cfg(test)]
     pub fn test_config(id: String) -> Self {
-        Self {
-            exec_file: PathBuf::from("/dev/null"),
-            chroot_base_dir: PathBuf::from("/tmp"),
-            ..Self::new(id)
-        }
+        let mut config = Self::new(id);
+        config.exec_file = PathBuf::from("/dev/null");
+        config.chroot_base_dir = PathBuf::from("/tmp");
+        config
     }
 
     /// Set custom UID/GID for privilege separation
@@ -123,13 +122,13 @@ impl JailerConfig {
             anyhow::bail!("VM ID too long (max 64 characters)");
         }
 
-        // Only alphanumeric and hyphens allowed
+        // Only ASCII alphanumeric and hyphens allowed
         if !self
             .id
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-')
         {
-            anyhow::bail!("VM ID can only contain alphanumeric characters and hyphens");
+            anyhow::bail!("VM ID can only contain ASCII alphanumeric characters and hyphens");
         }
 
         // Validate exec file exists

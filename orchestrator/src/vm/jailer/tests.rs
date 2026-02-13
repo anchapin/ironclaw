@@ -13,17 +13,17 @@ mod tests {
     /// - Jailer installed at /usr/local/bin/jailer
     #[test]
     fn test_verify_jailer_installed() {
-        let result = verify_jailer_installed();
-        match result {
+        let _result = verify_jailer_installed();
+        match _result {
             Ok(_path) => {
                 println!("Jailer is installed at: /usr/local/bin/jailer");
             }
-            Err(ref e) => {
+            Err(e) => {
                 println!("Jailer not installed: {}", e);
                 println!("Tests requiring real Jailer will be skipped");
             }
         }
-        assert!(result.is_ok() || result.is_err()); // Always passes, just reports status
+        // Result is consumed above, no need for redundant assertion
     }
 
     /// Test that jailer config validates correct IDs
@@ -425,6 +425,8 @@ mod tests {
     /// Integration test: Test chroot path generation
     #[tokio::test]
     async fn test_chroot_path_generation() {
+        use std::path::Path;
+
         let config = JailerConfig::new("test-vm".to_string());
         let chroot_dir = config.chroot_dir();
 
