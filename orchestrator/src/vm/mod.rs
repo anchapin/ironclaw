@@ -9,6 +9,7 @@
 
 pub mod config;
 pub mod firecracker;
+pub mod apple_hv;
 pub mod firewall;
 pub mod hypervisor;
 pub mod jailer;
@@ -38,9 +39,10 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, OnceCell};
 
 use crate::vm::config::VmConfig;
-use crate::vm::firecracker::start_firecracker;
+use crate::vm::firecracker::{start_firecracker, FirecrackerHypervisor};
+use crate::vm::apple_hv::AppleHvHypervisor;
 use crate::vm::firewall::FirewallManager;
-use crate::vm::hypervisor::VmInstance;
+use crate::vm::hypervisor::{Hypervisor, VmInstance};
 use crate::vm::jailer::{
     start_jailed_firecracker,
     stop_jailed_firecracker,
@@ -50,6 +52,18 @@ use crate::vm::jailer::{
 };
 use crate::vm::pool::{PoolConfig, SnapshotPool};
 use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
+
+/// Get the default hypervisor for the current platform
+fn get_default_hypervisor() -> Box<dyn Hypervisor> {
+    #[cfg(target_os = "macos")]
+    {
+        Box::new(AppleHvHypervisor)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Box::new(FirecrackerHypervisor)
+    }
+}
 
 /// Global snapshot pool (lazy-initialized)
 static SNAPSHOT_POOL: OnceCell<Arc<SnapshotPool>> = OnceCell::const_new();
@@ -222,14 +236,15 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
         }
     }
 
-    // Start Firecracker VM
-    let process = start_firecracker(&config_with_seccomp).await?;
+    // Start VM using the default hypervisor for the platform
+    let hv = get_default_hypervisor();
+    let process = hv.spawn(&config_with_seccomp).await?;
 
-    let spawn_time = process.spawn_time_ms;
+    let spawn_time = process.spawn_time_ms();
 
     Ok(VmHandle {
         id: task_id.to_string(),
-        process: Arc::new(Mutex::new(Some(Box::new(process)))),
+        process: Arc::new(Mutex::new(Some(process))),
         spawn_time_ms: spawn_time,
         config: config.clone(),
         firewall_manager: Some(firewall_manager),
