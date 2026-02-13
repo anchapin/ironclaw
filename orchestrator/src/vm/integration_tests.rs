@@ -540,7 +540,7 @@ async fn test_real_pool_warmup() {
             // Check stats
             if let Ok(stats) = pool_stats().await {
                 println!("Pool size after warmup: {}/{}", stats.current_size, stats.max_size);
-                println!("Oldest snapshot: {}s, Newest snapshot: {}s",
+                println!("Oldest snapshot: {:?}s, Newest snapshot: {:?}s",
                     stats.oldest_snapshot_age_secs, stats.newest_snapshot_age_secs);
             }
         }
