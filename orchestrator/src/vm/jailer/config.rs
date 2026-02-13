@@ -122,7 +122,7 @@ impl JailerConfig {
         }
 
         // Only alphanumeric and hyphens allowed
-        if !self.id.chars().all(|c| c.is_alphanumeric() || c == '-') {
+        if !self.id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
             anyhow::bail!("VM ID can only contain alphanumeric characters and hyphens");
         }
 
@@ -307,7 +307,6 @@ mod tests {
         assert!(args.contains(&"--cgroup".to_string()));
         assert!(args.contains(&"cpu.shares=2048".to_string()));
     }
-}
 }
 
 // Property-based tests with Proptest
