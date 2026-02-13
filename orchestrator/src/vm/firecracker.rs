@@ -268,19 +268,7 @@ async fn configure_vm(client: &mut FirecrackerClient, config: &VmConfig) -> Resu
     Ok(())
 }
 
-/// Create rootfs drive configuration
-///
-/// Ensures rootfs is always mounted as read-only for security.
-fn create_rootfs_drive(path: &str) -> Drive {
-    Drive {
-        drive_id: "rootfs".to_string(),
-        path_on_host: path.to_string(),
-        is_root_device: true,
-        is_read_only: true, // SECURITY: Shared rootfs MUST be read-only
-    }
-}
-
-async fn start_instance(client: &mut FirecrackerClient) -> Result<()> {
+async fn configure_vm(client: &mut FirecrackerClient, config: &VmConfig) -> Result<()> {
     let action = Action {
         action_type: "InstanceStart".to_string(),
     };
@@ -403,10 +391,7 @@ mod tests {
                 assert!(std::path::Path::new(&socket_path).exists());
 
                 let socket_path = process.socket_path.clone();
-<<<<<<< HEAD
 
-=======
->>>>>>> origin/main
                 // Stop the VM
                 stop_firecracker(process).await.unwrap();
                 println!("Firecracker stopped successfully");
@@ -499,10 +484,7 @@ mod tests {
         assert!(std::path::Path::new(&socket_path).exists());
 
         let socket_path = process.socket_path.clone();
-<<<<<<< HEAD
 
-=======
->>>>>>> origin/main
         // Stop
         stop_firecracker(process).await.unwrap();
 
