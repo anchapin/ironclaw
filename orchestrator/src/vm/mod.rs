@@ -10,6 +10,7 @@
 pub mod config;
 pub mod firecracker;
 pub mod firewall;
+pub mod hypervisor;
 pub mod jailer;
 pub mod pool;
 pub mod rootfs;
@@ -37,10 +38,14 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, OnceCell};
 
 use crate::vm::config::VmConfig;
-use crate::vm::firecracker::{start_firecracker, stop_firecracker, FirecrackerProcess};
+use crate::vm::firecracker::start_firecracker;
 use crate::vm::firewall::FirewallManager;
+use crate::vm::hypervisor::VmInstance;
 use crate::vm::jailer::{
-    start_jailed_firecracker, stop_jailed_firecracker, verify_jailer_installed, JailerConfig,
+    start_jailed_firecracker,
+    stop_jailed_firecracker,
+    verify_jailer_installed,
+    JailerConfig,
     JailerProcess,
 };
 use crate::vm::pool::{PoolConfig, SnapshotPool};
@@ -67,7 +72,7 @@ async fn get_pool() -> Result<Arc<SnapshotPool>> {
 /// VM handle for managing lifecycle
 pub struct VmHandle {
     pub id: String,
-    process: Arc<Mutex<Option<FirecrackerProcess>>>,
+    process: Arc<Mutex<Option<Box<dyn VmInstance>>>>,
     pub spawn_time_ms: f64,
     config: VmConfig,
     firewall_manager: Option<FirewallManager>,
@@ -191,8 +196,7 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
         }
         Err(e) => {
             tracing::warn!(
-                "Failed to configure firewall (running without root?): {}. \
-                VM will still have networking disabled in config, but firewall rules are not applied.",
+                "Failed to configure firewall (running without root?): {}. \n                VM will still have networking disabled in config, but firewall rules are not applied.",
                 e
             );
             // Continue anyway - networking is still disabled in config
@@ -225,7 +229,7 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
 
     Ok(VmHandle {
         id: task_id.to_string(),
-        process: Arc::new(Mutex::new(Some(process))),
+        process: Arc::new(Mutex::new(Some(Box::new(process)))),
         spawn_time_ms: spawn_time,
         config: config.clone(),
         firewall_manager: Some(firewall_manager),
@@ -260,10 +264,10 @@ pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
     tracing::info!("Destroying VM: {}", handle.id);
 
     // Take the process out of the Arc<Mutex>
-    let process = handle.process.lock().await.take();
+    let mut process = handle.process.lock().await.take();
 
-    if let Some(proc) = process {
-        stop_firecracker(proc).await?;
+    if let Some(ref mut proc) = process {
+        proc.stop().await?;
     } else {
         tracing::warn!("VM {} already destroyed", handle.id);
     }
@@ -320,7 +324,7 @@ pub async fn warmup_pool() -> Result<()> {
     let stats = pool.stats().await;
 
     tracing::info!(
-        "Pool warmed up with {}/{} snapshots",
+        "Pool warmed up with {}/{}" ,
         stats.current_size,
         stats.max_size
     );
@@ -488,8 +492,7 @@ pub async fn spawn_vm_jailed(
         }
         Err(e) => {
             tracing::warn!(
-                "Failed to configure firewall (running without root?): {}. \
-                VM will still have networking disabled in config, but firewall rules are not applied.",
+                "Failed to configure firewall (running without root?): {}. \n                VM will still have networking disabled in config, but firewall rules are not applied.",
                 e
             );
         }
@@ -502,12 +505,7 @@ pub async fn spawn_vm_jailed(
 
     Ok(VmHandle {
         id: task_id.to_string(),
-        process: Arc::new(Mutex::new(Some(FirecrackerProcess {
-            pid: jailer_process.pid,
-            socket_path: jailer_process.socket_path.clone(),
-            child_process: jailer_process.child_process,
-            spawn_time_ms: jailer_process.spawn_time_ms,
-        }))),
+        process: Arc::new(Mutex::new(Some(Box::new(jailer_process)))),
         spawn_time_ms: spawn_time,
         config: vm_config.clone(),
         firewall_manager: Some(firewall_manager),
@@ -544,23 +542,14 @@ pub async fn spawn_vm_jailed(
 ///     Ok(())
 /// }
 /// ```
-pub async fn destroy_vm_jailed(handle: VmHandle, jailer_config: &JailerConfig) -> Result<()> {
+pub async fn destroy_vm_jailed(handle: VmHandle, _jailer_config: &JailerConfig) -> Result<()> {
     tracing::info!("Destroying JAILED VM: {}", handle.id);
 
     // Take process out of Arc<Mutex>
-    let process = handle.process.lock().await.take();
+    let mut process = handle.process.lock().await.take();
 
-    if let Some(proc) = process {
-        // Create a jailer process wrapper for cleanup
-        let jailer_process = JailerProcess {
-            pid: proc.pid,
-            socket_path: proc.socket_path,
-            child_process: proc.child_process,
-            spawn_time_ms: proc.spawn_time_ms,
-            chroot_dir: jailer_config.chroot_dir(),
-        };
-
-        stop_jailed_firecracker(jailer_process).await?;
+    if let Some(ref mut proc) = process {
+        proc.stop().await?;
     } else {
         tracing::warn!("JAILED VM {} already destroyed", handle.id);
     }
