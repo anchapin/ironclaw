@@ -1,3 +1,4 @@
+#![cfg(unix)]
 // Firecracker Integration
 //
 // This module handles the actual Firecracker VM spawning using the HTTP API over Unix sockets.
