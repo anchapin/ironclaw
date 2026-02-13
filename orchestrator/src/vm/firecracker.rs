@@ -268,7 +268,7 @@ async fn configure_vm(client: &mut FirecrackerClient, config: &VmConfig) -> Resu
     Ok(())
 }
 
-async fn configure_vm(client: &mut FirecrackerClient, config: &VmConfig) -> Result<()> {
+async fn start_instance(client: &mut FirecrackerClient) -> Result<()> {
     let action = Action {
         action_type: "InstanceStart".to_string(),
     };
@@ -1016,6 +1016,16 @@ mod tests {
         assert!(json.contains("InstanceStart"));
 
         println!("Action serialization test passed");
+    }
+
+    /// Helper to create a secure rootfs drive configuration
+    fn create_rootfs_drive(path: &str) -> Drive {
+        Drive {
+            drive_id: "rootfs".to_string(),
+            path_on_host: path.to_string(),
+            is_root_device: true,
+            is_read_only: true,
+        }
     }
 
     /// Security Test: Verify rootfs drive is always read-only
