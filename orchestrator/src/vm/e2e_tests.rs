@@ -289,8 +289,6 @@ async fn e2e_agent_pool_warmup() {
                 println!("Pool status:");
                 println!("  Current size: {}", stats.current_size);
                 println!("  Max size: {}", stats.max_size);
-                println!("  Oldest snapshot: {:?}s", stats.oldest_snapshot_age_secs);
-                println!("  Newest snapshot: {:?}s", stats.newest_snapshot_age_secs);
             }
         }
         Err(e) => {

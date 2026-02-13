@@ -306,6 +306,7 @@ mod tests {
         assert!(args.contains(&"cpu.shares=2048".to_string()));
     }
 }
+
 // Property-based tests with Proptest
 #[cfg(test)]
 mod proptests {

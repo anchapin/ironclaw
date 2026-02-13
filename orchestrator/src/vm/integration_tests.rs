@@ -512,9 +512,6 @@ async fn test_real_pool_stats() {
             println!("Pool stats: size={}/{}",
                 stats.current_size, stats.max_size);
 
-            println!("Oldest: {:?}s, Newest: {:?}s",
-                stats.oldest_snapshot_age_secs, stats.newest_snapshot_age_secs);
-
             assert!(stats.max_size > 0);
         }
         Err(e) => {

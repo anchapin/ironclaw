@@ -384,8 +384,10 @@ mod tests {
                 let elapsed = start.elapsed();
                 println!("Firecracker started in {:.2}ms, PID: {}", elapsed.as_millis(), process.pid);
 
-                // Verify socket was created
+                // Clone socket_path before moving process
                 let socket_path = process.socket_path.clone();
+
+                // Verify socket was created
                 assert!(std::path::Path::new(&socket_path).exists());
 
                 // Stop the VM
@@ -471,8 +473,10 @@ mod tests {
         assert!(!process.socket_path.is_empty());
         assert!(process.spawn_time_ms > 0.0);
 
-        // Verify socket exists
+        // Clone socket_path before moving process
         let socket_path = process.socket_path.clone();
+
+        // Verify socket exists
         assert!(std::path::Path::new(&socket_path).exists());
 
         // Stop
