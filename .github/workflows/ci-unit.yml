@@ -68,31 +68,21 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}-v2
 
       - name: Cache cargo index
         uses: actions/cache@v5
         with:
           path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}-v2
 
       - name: Cache cargo build
         uses: actions/cache@v5
         with:
           path: orchestrator/target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}-v2
 
-      - name: Debug Environment (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          echo "## Environment Variables"
-          Get-ChildItem Env: | Format-List
-          echo "## Rust Toolchain"
-          rustc --version --verbose
-          cargo --version --verbose
-          where.exe rustc
-          where.exe cargo
-        shell: pwsh
+
 
       - name: Run cargo test
         working-directory: orchestrator
