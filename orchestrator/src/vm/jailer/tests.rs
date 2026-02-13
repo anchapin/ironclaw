@@ -22,21 +22,21 @@ mod tests {
     /// Test that jailer config validates correct IDs
     #[test]
     fn test_jailer_config_valid_id() {
-        let config = JailerConfig::new("test-vm-123".to_string());
+        let config = JailerConfig::test_config("test-vm-123".to_string());
         assert!(config.validate().is_ok());
     }
 
     /// Test that jailer config rejects empty IDs
     #[test]
     fn test_jailer_config_empty_id() {
-        let config = JailerConfig::new("".to_string());
+        let config = JailerConfig::test_config("".to_string());
         assert!(config.validate().is_err());
     }
 
     /// Test that jailer config rejects IDs with invalid chars
     #[test]
     fn test_jailer_config_invalid_chars() {
-        let config = JailerConfig::new("invalid@id#with$symbols".to_string());
+        let config = JailerConfig::test_config("invalid@id#with$symbols".to_string());
         assert!(config.validate().is_err());
     }
 
@@ -44,14 +44,14 @@ mod tests {
     #[test]
     fn test_jailer_config_id_too_long() {
         let long_id = "a".repeat(65); // 65 > 64 limit
-        let config = JailerConfig::new(long_id);
+        let config = JailerConfig::test_config(long_id);
         assert!(config.validate().is_err());
     }
 
     /// Test that jailer config with custom user works
     #[test]
     fn test_jailer_config_with_user() {
-        let config = JailerConfig::new("test".to_string())
+        let config = JailerConfig::test_config("test".to_string())
             .with_user(123, 456);
         assert_eq!(config.uid, 123);
         assert_eq!(config.gid, 456);
@@ -61,7 +61,7 @@ mod tests {
     /// Test that jailer config with NUMA node works
     #[test]
     fn test_jailer_config_with_numa() {
-        let config = JailerConfig::new("test".to_string())
+        let config = JailerConfig::test_config("test".to_string())
             .with_numa_node(1);
         assert_eq!(config.numa_node, 1);
         assert!(config.validate().is_ok());
@@ -70,7 +70,7 @@ mod tests {
     /// Test that jailer config with cgroups works
     #[test]
     fn test_jailer_config_with_cgroup() {
-        let config = JailerConfig::new("test".to_string())
+        let config = JailerConfig::test_config("test".to_string())
             .with_cgroup("cpu.shares".to_string(), "1024".to_string());
 
         assert_eq!(
@@ -157,7 +157,7 @@ mod tests {
         ];
 
         for id in valid_ids {
-            let config = JailerConfig::new(id.to_string());
+            let config = JailerConfig::test_config(id.to_string());
             assert!(
                 config.validate().is_ok(),
                 "ID should be valid: {}",
@@ -186,7 +186,7 @@ mod tests {
         ];
 
         for id in invalid_ids {
-            let config = JailerConfig::new(id.to_string());
+            let config = JailerConfig::test_config(id.to_string());
             assert!(
                 config.validate().is_err(),
                 "ID should be invalid: {}",

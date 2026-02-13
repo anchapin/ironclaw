@@ -75,6 +75,16 @@ impl JailerConfig {
         config
     }
 
+    /// Create a test config with paths that work in test environments
+    /// Uses /dev/null for exec_file which always exists
+    #[cfg(test)]
+    pub fn test_config(id: String) -> Self {
+        let mut config = Self::new(id);
+        config.exec_file = PathBuf::from("/dev/null");
+        config.chroot_base_dir = PathBuf::from("/tmp");
+        config
+    }
+
     /// Set custom UID/GID for privilege separation
     pub fn with_user(mut self, uid: u32, gid: u32) -> Self {
         self.uid = uid;
@@ -222,26 +232,26 @@ mod tests {
 
     #[test]
     fn test_config_validation_valid_id() {
-        let config = JailerConfig::new("valid-vm-id-123".to_string());
+        let config = JailerConfig::test_config("valid-vm-id-123".to_string());
         assert!(config.validate().is_ok());
     }
 
     #[test]
     fn test_config_validation_empty_id() {
-        let config = JailerConfig::new("".to_string());
+        let config = JailerConfig::test_config("".to_string());
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn test_config_invalid_chars_in_id() {
-        let config = JailerConfig::new("invalid@id#with$symbols".to_string());
+        let config = JailerConfig::test_config("invalid@id#with$symbols".to_string());
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn test_config_id_too_long() {
         let long_id = "a".repeat(65); // 65 chars > 64 limit
-        let config = JailerConfig::new(long_id);
+        let config = JailerConfig::test_config(long_id);
         assert!(config.validate().is_err());
     }
 
