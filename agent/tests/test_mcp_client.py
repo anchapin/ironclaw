@@ -12,7 +12,6 @@ Coverage target: 70%+ for mcp_client.py
 """
 
 import pytest
-import sys
 from unittest.mock import Mock, patch, MagicMock, mock_open
 from mcp_client import McpClient, McpError, McpState, Tool
 import subprocess
@@ -177,10 +176,10 @@ class TestMcpClientLifecycle:
         call_args = mock_popen.call_args
         assert call_args[0][0] == expected_cmd
 
-        # Check that stdin/stdout/stderr are set to PIPE (except stderr which goes to sys.stderr)
+        # Check that stdin/stdout/stderr are set to PIPE
         assert call_args[1]["stdin"] == subprocess.PIPE
         assert call_args[1]["stdout"] == subprocess.PIPE
-        assert call_args[1]["stderr"] == sys.stderr
+        assert call_args[1]["stderr"] == subprocess.PIPE
 
     @patch("subprocess.Popen")
     def test_spawn_transitions_to_connected_state(self, mock_popen):

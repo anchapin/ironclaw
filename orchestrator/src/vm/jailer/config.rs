@@ -70,10 +70,9 @@ impl Default for JailerConfig {
 impl JailerConfig {
     /// Create a new Jailer config with defaults
     pub fn new(id: String) -> Self {
-        Self {
-            id,
-            ..Default::default()
-        }
+        let mut config = Self::default();
+        config.id = id;
+        config
     }
 
     /// Create a test config with paths that work in test environments
@@ -122,24 +121,26 @@ impl JailerConfig {
             anyhow::bail!("VM ID too long (max 64 characters)");
         }
 
-        // Only ASCII alphanumeric and hyphens allowed
-        if !self
-            .id
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-')
-        {
-            anyhow::bail!("VM ID can only contain ASCII alphanumeric characters and hyphens");
+        // Only alphanumeric and hyphens allowed
+        if !self.id.chars().all(|c| c.is_alphanumeric() || c == '-') {
+            anyhow::bail!("VM ID can only contain alphanumeric characters and hyphens");
         }
 
         // Validate exec file exists
         if !self.exec_file.exists() {
-            anyhow::bail!("Firecracker binary not found at: {:?}", self.exec_file);
+            anyhow::bail!(
+                "Firecracker binary not found at: {:?}",
+                self.exec_file
+            );
         }
 
         // Validate chroot base dir exists or can be created
         if let Some(parent) = self.chroot_base_dir.parent() {
             if !parent.exists() {
-                anyhow::bail!("Chroot base parent directory does not exist: {:?}", parent);
+                anyhow::bail!(
+                    "Chroot base parent directory does not exist: {:?}",
+                    parent
+                );
             }
         }
 
@@ -299,9 +300,7 @@ mod tests {
     #[test]
     fn test_build_args_with_cgroups() {
         let mut config = JailerConfig::new("test-vm".to_string());
-        config
-            .cgroups
-            .insert("cpu.shares".to_string(), "2048".to_string());
+        config.cgroups.insert("cpu.shares".to_string(), "2048".to_string());
 
         let args = config.build_args();
 

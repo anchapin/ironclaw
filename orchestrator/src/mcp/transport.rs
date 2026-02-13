@@ -90,7 +90,7 @@ impl StdioTransport {
     ///
     /// # Returns
     ///
-    /// Returns a new `StdioTransport` instance, or an error if the process could not be spawned.
+    /// Returns a new `StdioTransport` instance
     ///
     /// # Example
     ///
@@ -135,8 +135,7 @@ impl StdioTransport {
 
     /// Kill the MCP server process
     ///
-    /// This sends a signal to the child process (SIGKILL on Unix, TerminateProcess on Windows)
-    /// and marks the transport as disconnected.
+    /// This sends a SIGTERM signal to the child process and waits for it to exit.
     pub async fn kill(&mut self) -> Result<()> {
         if let Some(mut child) = self.child.take() {
             tracing::info!("Killing MCP server: {}", self.command);
@@ -152,7 +151,6 @@ impl StdioTransport {
     /// Wait for the MCP server process to exit
     ///
     /// This waits for the child process to exit naturally and returns the exit code.
-    /// If the process has already been killed or waited on, this returns `Ok(None)`.
     pub async fn wait(&mut self) -> Result<Option<i32>> {
         if let Some(mut child) = self.child.take() {
             let status = child
@@ -361,6 +359,7 @@ done
         let echo_path = "/tmp/mcp_echo_test.sh";
         std::fs::write(echo_path, echo_script).unwrap();
 
+        #[cfg(unix)]
         {
             use tokio::process::Command;
 
@@ -395,9 +394,15 @@ done
             // Clean up the test file
             let _ = std::fs::remove_file(echo_path);
         }
+
+        #[cfg(not(unix))]
+        {
+            // Skip this test on non-Unix platforms
+            println!("Skipping echo server test on non-Unix platform");
+        }
     }
 
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     #[tokio::test]
     async fn test_transport_kill_and_wait() {
         // Test kill() and wait() methods
@@ -442,7 +447,7 @@ sleep 100
         }
     }
 
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     #[tokio::test]
     async fn test_transport_wait_without_kill() {
         // Test wait() method without killing the process first
@@ -531,7 +536,7 @@ exit 42
         assert!(result.is_err());
     }
 
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     #[tokio::test]
     async fn test_transport_command_getter() {
         // Test that we can get the command string from a spawned transport

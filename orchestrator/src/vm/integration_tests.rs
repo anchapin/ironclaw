@@ -24,12 +24,13 @@
 // cargo test --lib vm::integration_tests::test_real_vm_lifecycle -- --ignored --nocapture
 // ```
 
-use crate::vm::config::VmConfig;
-use crate::vm::jailer::{verify_jailer_installed, JailerConfig};
-use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
 use crate::vm::{
-    destroy_vm, pool_stats, spawn_vm, spawn_vm_jailed, spawn_vm_with_config, warmup_pool,
+    destroy_vm, pool_stats, spawn_vm, spawn_vm_jailed, spawn_vm_with_config,
+    warmup_pool,
 };
+use crate::vm::config::VmConfig;
+use crate::vm::jailer::{JailerConfig, verify_jailer_installed};
+use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
 use std::time::Instant;
 
 /// Helper function to check if we have VM resources available
@@ -77,11 +78,7 @@ async fn test_real_vm_lifecycle() {
     };
 
     let spawn_time = start.elapsed();
-    println!(
-        "VM spawned in {:.2}ms, PID: {:?}",
-        spawn_time.as_millis(),
-        handle.id
-    );
+    println!("VM spawned in {:.2}ms, PID: {:?}", spawn_time.as_millis(), handle.id);
 
     // Verify handle
     assert_eq!(handle.id, "real-lifecycle-test");
@@ -141,10 +138,7 @@ async fn test_real_vm_spawn_with_config() {
     };
 
     let spawn_time = start.elapsed();
-    println!(
-        "VM with custom config spawned in {:.2}ms",
-        spawn_time.as_millis()
-    );
+    println!("VM with custom config spawned in {:.2}ms", spawn_time.as_millis());
 
     assert_eq!(handle.id, "custom-config-test");
     destroy_vm(handle).await.unwrap();
@@ -186,13 +180,11 @@ async fn test_real_vm_with_seccomp() {
     };
 
     let spawn_time = start.elapsed();
-    println!(
-        "VM with seccomp Basic spawned in {:.2}ms",
-        spawn_time.as_millis()
-    );
+    println!("VM with seccomp Basic spawned in {:.2}ms", spawn_time.as_millis());
 
     assert!(handle.config.seccomp_filter.is_some());
     destroy_vm(handle).await.unwrap();
+
 }
 
 /// Integration test: Multiple real VMs
@@ -237,11 +229,8 @@ async fn test_real_multiple_vms() {
 
     // Verify all have unique IDs
     let ids: Vec<_> = handles.iter().map(|h| h.id.as_str()).collect();
-    assert_eq!(
-        ids.len(),
-        ids.iter().collect::<std::collections::HashSet<_>>().len(),
-        "VM IDs should be unique"
-    );
+    assert_eq!(ids.len(), ids.iter().collect::<std::collections::HashSet<_>>().len(),
+        "VM IDs should be unique");
 
     println!("Spawned {} VMs successfully", handles.len());
 
@@ -294,27 +283,14 @@ async fn test_real_rapid_vm_cycle() {
 
         destroy_vm(handle).await.unwrap();
 
-        println!(
-            "Iteration {}: spawn time {:.2}ms",
-            i,
-            spawn_time.as_millis()
-        );
+        println!("Iteration {}: spawn time {:.2}ms", i, spawn_time.as_millis());
     }
 
     let avg_time = spawn_times.iter().sum::<std::time::Duration>() / spawn_times.len() as u32;
 
-    println!(
-        "Average spawn time over 10 iterations: {:.2}ms",
-        avg_time.as_millis()
-    );
-    println!(
-        "Min spawn time: {:.2}ms",
-        spawn_times.iter().min().unwrap().as_millis()
-    );
-    println!(
-        "Max spawn time: {:.2}ms",
-        spawn_times.iter().max().unwrap().as_millis()
-    );
+    println!("Average spawn time over 10 iterations: {:.2}ms", avg_time.as_millis());
+    println!("Min spawn time: {:.2}ms", spawn_times.iter().min().unwrap().as_millis());
+    println!("Max spawn time: {:.2}ms", spawn_times.iter().max().unwrap().as_millis());
 
     // Target is <200ms average
     if avg_time.as_millis() > 200 {
@@ -447,7 +423,8 @@ async fn test_real_jailed_vm_with_user() {
     }
 
     let vm_config = VmConfig::new("jailed-user-test".to_string());
-    let jailer_config = JailerConfig::new("jailed-user-test".to_string()).with_user(1000, 1000); // Run as user 1000:1000
+    let jailer_config = JailerConfig::new("jailed-user-test".to_string())
+        .with_user(1000, 1000); // Run as user 1000:1000
 
     let result = spawn_vm_jailed("jailed-user-test", &vm_config, &jailer_config).await;
 
@@ -532,7 +509,9 @@ async fn test_real_pool_stats() {
 
     match result {
         Ok(stats) => {
-            println!("Pool stats: size={}/{}", stats.current_size, stats.max_size);
+            println!("Pool stats: size={}/{}, active={}, queued={}",
+                stats.current_size, stats.max_size,
+                stats.active_vms, stats.queued_tasks);
 
             assert!(stats.max_size > 0);
         }
@@ -558,14 +537,9 @@ async fn test_real_pool_warmup() {
 
             // Check stats
             if let Ok(stats) = pool_stats().await {
-                println!(
-                    "Pool size after warmup: {}/{}",
-                    stats.current_size, stats.max_size
-                );
-                println!(
-                    "Oldest snapshot: {:?}s, Newest snapshot: {:?}s",
-                    stats.oldest_snapshot_age_secs, stats.newest_snapshot_age_secs
-                );
+                println!("Pool size after warmup: {}/{}", stats.current_size, stats.max_size);
+                println!("Oldest snapshot: {:?}s, Newest snapshot: {:?}s",
+                    stats.oldest_snapshot_age_secs, stats.newest_snapshot_age_secs);
             }
         }
         Err(e) => {
@@ -613,11 +587,7 @@ async fn test_real_vm_performance() {
         times.push(start.elapsed());
         destroy_vm(handle).await.unwrap();
 
-        println!(
-            "Iteration {}: {:.2}ms",
-            i,
-            times.last().unwrap().as_millis()
-        );
+        println!("Iteration {}: {:.2}ms", i, times.last().unwrap().as_millis());
     }
 
     let avg = times.iter().sum::<std::time::Duration>() / times.len() as u32;
@@ -630,7 +600,7 @@ async fn test_real_vm_performance() {
     println!("  Max: {:.2}ms", max.as_millis());
 
     // Check against target
-    if avg.as_millis() as f64 > 200.0 {
+    if avg.as_millis() > 200 {
         println!("  ⚠️  Average exceeds 200ms target");
     } else {
         println!("  ✅ Average meets 200ms target");

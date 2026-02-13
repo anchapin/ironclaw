@@ -5,7 +5,7 @@
 #[cfg(test)]
 mod tests {
     use crate::vm::config::VmConfig;
-    use crate::vm::jailer::{verify_jailer_installed, JailerConfig};
+    use crate::vm::jailer::{JailerConfig, verify_jailer_installed};
 
     /// Integration test: Verify Jailer binary is available
     ///
@@ -13,8 +13,8 @@ mod tests {
     /// - Jailer installed at /usr/local/bin/jailer
     #[test]
     fn test_verify_jailer_installed() {
-        let _result = verify_jailer_installed();
-        match _result {
+        let result = verify_jailer_installed();
+        match result {
             Ok(_path) => {
                 println!("Jailer is installed at: /usr/local/bin/jailer");
             }
@@ -23,7 +23,7 @@ mod tests {
                 println!("Tests requiring real Jailer will be skipped");
             }
         }
-        // Result is consumed above, no need for redundant assertion
+        assert!(result.is_ok() || result.is_err()); // Always passes, just reports status
     }
 
     /// Test that jailer config validates correct IDs
@@ -58,7 +58,8 @@ mod tests {
     /// Test that jailer config with custom user works
     #[test]
     fn test_jailer_config_with_user() {
-        let config = JailerConfig::test_config("test".to_string()).with_user(123, 456);
+        let config = JailerConfig::test_config("test".to_string())
+            .with_user(123, 456);
         assert_eq!(config.uid, 123);
         assert_eq!(config.gid, 456);
         assert!(config.validate().is_ok());
@@ -67,7 +68,8 @@ mod tests {
     /// Test that jailer config with NUMA node works
     #[test]
     fn test_jailer_config_with_numa() {
-        let config = JailerConfig::test_config("test".to_string()).with_numa_node(1);
+        let config = JailerConfig::test_config("test".to_string())
+            .with_numa_node(1);
         assert_eq!(config.numa_node, 1);
         assert!(config.validate().is_ok());
     }
@@ -78,7 +80,10 @@ mod tests {
         let config = JailerConfig::test_config("test".to_string())
             .with_cgroup("cpu.shares".to_string(), "1024".to_string());
 
-        assert_eq!(config.cgroups.get("cpu.shares"), Some(&"1024".to_string()));
+        assert_eq!(
+            config.cgroups.get("cpu.shares"),
+            Some(&"1024".to_string())
+        );
         assert!(config.validate().is_ok());
     }
 
@@ -118,12 +123,8 @@ mod tests {
     #[test]
     fn test_jailer_args_with_cgroups() {
         let mut config = JailerConfig::new("test-vm".to_string());
-        config
-            .cgroups
-            .insert("cpu.shares".to_string(), "512".to_string());
-        config
-            .cgroups
-            .insert("memory.limit_in_bytes".to_string(), "268435456".to_string());
+        config.cgroups.insert("cpu.shares".to_string(), "512".to_string());
+        config.cgroups.insert("memory.limit_in_bytes".to_string(), "268435456".to_string());
 
         let args = config.build_args();
 
@@ -164,7 +165,11 @@ mod tests {
 
         for id in valid_ids {
             let config = JailerConfig::test_config(id.to_string());
-            assert!(config.validate().is_ok(), "ID should be valid: {}", id);
+            assert!(
+                config.validate().is_ok(),
+                "ID should be valid: {}",
+                id
+            );
         }
     }
 
@@ -175,21 +180,25 @@ mod tests {
         let invalid_ids = vec![
             "",
             "with_underscore", // underscores are invalid
-            "with.dot",        // dots are invalid
+            "with.dot",       // dots are invalid
             "with/slash",      // slashes are invalid
             "with@symbol",     // @ is invalid
             "with#hash",       // # is invalid
-            "with$ dollar",    // $ is invalid
+            "with$ dollar",     // $ is invalid
             "with%percent",    // % is invalid
             "with&ampersand",  // & is invalid
             "with*asterisk",   // * is invalid
-            "with space",      // spaces are invalid
-            &too_long,         // Too long
+            "with space",       // spaces are invalid
+            &too_long,  // Too long
         ];
 
         for id in invalid_ids {
             let config = JailerConfig::test_config(id.to_string());
-            assert!(config.validate().is_err(), "ID should be invalid: {}", id);
+            assert!(
+                config.validate().is_err(),
+                "ID should be invalid: {}",
+                id
+            );
         }
     }
 
@@ -197,7 +206,7 @@ mod tests {
     #[tokio::test]
     #[ignore] // Requires root and actual Firecracker installation
     async fn test_spawn_jailed_vm() {
-        use crate::vm::{destroy_vm_jailed, spawn_vm_jailed};
+        use crate::vm::{spawn_vm_jailed, destroy_vm_jailed};
 
         // Skip if jailer not installed
         if verify_jailer_installed().is_err() {
@@ -223,14 +232,16 @@ mod tests {
         assert_eq!(handle.id, "test-jailed-vm");
         assert!(handle.spawn_time_ms > 0.0);
 
-        destroy_vm_jailed(handle, &jailer_config).await.unwrap();
+        destroy_vm_jailed(handle, &jailer_config)
+            .await
+            .unwrap();
     }
 
     /// Integration test: Jailed VM with non-root user
     #[tokio::test]
     #[ignore] // Requires root to set up
     async fn test_spawn_jailed_vm_with_user() {
-        use crate::vm::{destroy_vm_jailed, spawn_vm_jailed};
+        use crate::vm::{spawn_vm_jailed, destroy_vm_jailed};
 
         // Skip if jailer not installed
         if verify_jailer_installed().is_err() {
@@ -243,7 +254,8 @@ mod tests {
         }
 
         let vm_config = VmConfig::new("test-user-vm".to_string());
-        let jailer_config = JailerConfig::new("test-user-vm".to_string()).with_user(1000, 1000); // Use non-root user
+        let jailer_config = JailerConfig::new("test-user-vm".to_string())
+            .with_user(1000, 1000); // Use non-root user
 
         let result = spawn_vm_jailed("test-user-vm", &vm_config, &jailer_config).await;
 
@@ -255,14 +267,16 @@ mod tests {
         let handle = result.unwrap();
         assert_eq!(handle.id, "test-user-vm");
 
-        destroy_vm_jailed(handle, &jailer_config).await.unwrap();
+        destroy_vm_jailed(handle, &jailer_config)
+            .await
+            .unwrap();
     }
 
     /// Integration test: Jailed VM with cgroups
     #[tokio::test]
     #[ignore] // Requires root
     async fn test_spawn_jailed_vm_with_cgroups() {
-        use crate::vm::{destroy_vm_jailed, spawn_vm_jailed};
+        use crate::vm::{spawn_vm_jailed, destroy_vm_jailed};
 
         // Skip if jailer not installed
         if verify_jailer_installed().is_err() {
@@ -289,7 +303,9 @@ mod tests {
         let handle = result.unwrap();
         assert_eq!(handle.id, "test-cgroup-vm");
 
-        destroy_vm_jailed(handle, &jailer_config).await.unwrap();
+        destroy_vm_jailed(handle, &jailer_config)
+            .await
+            .unwrap();
     }
 
     /// Integration test: Verify real jailer binary can be executed
@@ -304,16 +320,15 @@ mod tests {
         }
 
         // Test 1: Verify jailer --help works
-        let help_output = Command::new("jailer").arg("--help").output();
+        let help_output = Command::new("jailer")
+            .arg("--help")
+            .output();
 
         match help_output {
             Ok(output) => {
                 assert!(output.status.success(), "Jailer --help should succeed");
                 let help_text = String::from_utf8_lossy(&output.stdout);
-                assert!(
-                    help_text.contains("exec-file"),
-                    "Jailer help should mention exec-file"
-                );
+                assert!(help_text.contains("exec-file"), "Jailer help should mention exec-file");
                 assert!(help_text.contains("id"), "Jailer help should mention id");
                 println!("✓ Jailer --help works correctly");
             }
@@ -323,7 +338,9 @@ mod tests {
         }
 
         // Test 2: Verify jailer version works
-        let version_output = Command::new("jailer").arg("--version").output();
+        let version_output = Command::new("jailer")
+            .arg("--version")
+            .output();
 
         match version_output {
             Ok(output) => {
@@ -337,14 +354,13 @@ mod tests {
         }
 
         // Test 3: Verify jailer rejects invalid arguments
-        let invalid_output = Command::new("jailer").arg("--invalid-arg").output();
+        let invalid_output = Command::new("jailer")
+            .arg("--invalid-arg")
+            .output();
 
         match invalid_output {
             Ok(output) => {
-                assert!(
-                    !output.status.success(),
-                    "Jailer should reject invalid arguments"
-                );
+                assert!(!output.status.success(), "Jailer should reject invalid arguments");
                 println!("✓ Jailer correctly rejects invalid arguments");
             }
             Err(e) => {
@@ -394,29 +410,14 @@ mod tests {
 
         // Verify required args are present
         let args_str = args.join(" ");
-        assert!(
-            args_str.contains("--id test-vm"),
-            "Args should contain --id"
-        );
+        assert!(args_str.contains("--id test-vm"), "Args should contain --id");
         assert!(args_str.contains("--node 0"), "Args should contain --node");
         assert!(args_str.contains("--uid"), "Args should contain --uid");
         assert!(args_str.contains("--gid"), "Args should contain --gid");
-        assert!(
-            args_str.contains("--exec-file"),
-            "Args should contain --exec-file"
-        );
-        assert!(
-            args_str.contains("--chroot-base-dir"),
-            "Args should contain --chroot-base-dir"
-        );
-        assert!(
-            args_str.contains("--daemonize"),
-            "Args should contain --daemonize"
-        );
-        assert!(
-            args_str.contains("--new-pid-ns"),
-            "Args should contain --new-pid-ns"
-        );
+        assert!(args_str.contains("--exec-file"), "Args should contain --exec-file");
+        assert!(args_str.contains("--chroot-base-dir"), "Args should contain --chroot-base-dir");
+        assert!(args_str.contains("--daemonize"), "Args should contain --daemonize");
+        assert!(args_str.contains("--new-pid-ns"), "Args should contain --new-pid-ns");
         assert!(args_str.ends_with("--"), "Args should end with separator");
 
         println!("✓ Jailer args build correctly: {}", args_str);
@@ -432,14 +433,8 @@ mod tests {
 
         // Verify path structure: /srv/jailer/firecracker/<id>/root
         assert!(chroot_dir.is_absolute(), "Chroot path should be absolute");
-        assert!(
-            chroot_dir.ends_with("firecracker/test-vm/root"),
-            "Chroot path should end with expected structure"
-        );
+        assert!(chroot_dir.ends_with("firecracker/test-vm/root"), "Chroot path should end with expected structure");
 
-        println!(
-            "✓ Chroot path generated correctly: {}",
-            chroot_dir.display()
-        );
+        println!("✓ Chroot path generated correctly: {}", chroot_dir.display());
     }
 }

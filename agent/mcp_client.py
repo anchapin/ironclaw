@@ -93,7 +93,6 @@ class McpClient:
         command: List[str],
         root_dir: Optional[str] = None,
         args: Optional[List[str]] = None,
-        orchestrator_command: Optional[List[str]] = None,
     ):
         """
         Create MCP client and spawn orchestrator process.
@@ -103,7 +102,6 @@ class McpClient:
             command: Command to spawn MCP server (e.g., ["npx", "-y", "@modelcontextprotocol/server-filesystem"])
             root_dir: Root directory for filesystem operations (optional)
             args: Additional arguments for orchestrator (optional)
-            orchestrator_command: Command to run the orchestrator (default: ["cargo", "run", "--", "mcp", "stdio"])
 
         Raises:
             McpError: If command validation fails
@@ -111,7 +109,6 @@ class McpClient:
         self.server_name = server_name
         self.root_dir = root_dir
         self.args = args or []
-        self.orchestrator_command = orchestrator_command or ["cargo", "run", "--", "mcp", "stdio"]
 
         # Validate basic type first
         if not command or not isinstance(command, list):
@@ -280,7 +277,7 @@ class McpClient:
             raise McpError(f"Cannot spawn: client is {self._state.value}")
 
         # Build orchestrator command
-        orch_cmd = self.orchestrator_command.copy()
+        orch_cmd = ["cargo", "run", "--", "mcp", "stdio"]
 
         # Add server command
         orch_cmd.extend(self.command)
@@ -291,7 +288,7 @@ class McpClient:
                 orch_cmd,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
-                stderr=sys.stderr,  # Direct to stderr to show build progress/logs
+                stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1,  # Line buffered
             )
@@ -446,3 +443,66 @@ class McpClient:
         """Context manager exit"""
         self.shutdown()
         return False
+
+
+def main() -> int:
+    """
+    Test MCP client with filesystem server.
+
+    Usage:
+        python -m agent.mcp_client
+    """
+    import tempfile
+
+    print("IronClaw MCP Client - Test")
+    print("=" * 40)
+
+    # Create temporary directory for testing
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create test file
+        test_file = f"{tmpdir}/test.txt"
+        with open(test_file, "w") as f:
+            f.write("Hello from IronClaw MCP!")
+
+        # Create MCP client
+        print(f"\n1. Spawning MCP client for filesystem server...")
+        client = McpClient(
+            "filesystem",
+            ["npx", "-y", "@modelcontextprotocol/server-filesystem"],
+            root_dir=tmpdir,
+        )
+
+        try:
+            print("2. Initializing...")
+            client.spawn()
+            client.initialize()
+
+            print("3. Listing tools...")
+            tools = client.list_tools()
+            print(f"   Available tools: {', '.join(t.name for t in tools)}")
+
+            print("4. Calling tool: read_file")
+            result = client.call_tool("read_file", {"path": "test.txt"})
+            content = result.get("content", [])
+            if content and isinstance(content[0], dict):
+                 # MCP spec for read_file returns content as list of text/blob
+                 # Example: [{"type": "text", "text": "..."}]
+                 text = content[0].get("text", "")
+                 print(f"   File content: {text[:50]}...")
+            else:
+                 print(f"   File content (raw): {content}")
+
+        except McpError as e:
+            print(f"   Error: {e}")
+            return 1
+
+        finally:
+            print("5. Shutting down...")
+            client.shutdown()
+
+    print("\n✓ Test complete")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
