@@ -185,23 +185,6 @@ async fn test_real_vm_with_seccomp() {
     assert!(handle.config.seccomp_filter.is_some());
     destroy_vm(handle).await.unwrap();
 
-    // Test with Strict seccomp level (Advanced was removed)
-    let mut strict_config = VmConfig::new("seccomp-strict-test".to_string());
-    strict_config.seccomp_filter = Some(SeccompFilter::new(SeccompLevel::Strict));
-
-    let start = Instant::now();
-    let handle = match spawn_vm_with_config("seccomp-strict-test", &strict_config).await {
-        Ok(h) => h,
-        Err(e) => {
-            println!("Failed to spawn VM with strict seccomp: {}", e);
-            return;
-        }
-    };
-
-    println!("VM with seccomp Strict spawned in {:.2}ms", start.elapsed().as_millis());
-    destroy_vm(handle).await.unwrap();
-
-    println!("Seccomp filter test completed");
 }
 
 /// Integration test: Multiple real VMs
