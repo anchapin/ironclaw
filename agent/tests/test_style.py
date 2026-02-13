@@ -9,6 +9,7 @@ import subprocess
 import pytest
 from loop import Style
 
+
 class TestStyle:
     """Tests for the Style class in loop.py"""
 
@@ -38,7 +39,11 @@ class TestStyle:
 
     def test_no_color_env_var(self):
         """Test that NO_COLOR=1 results in empty constants (subprocess)"""
-        cmd = [sys.executable, "-c", "from loop import Style; print(f'BOLD={repr(Style.BOLD)}'); print(f'CYAN={repr(Style.CYAN)}');"]
+        cmd = [
+            sys.executable,
+            "-c",
+            "from loop import Style; print(f'BOLD={repr(Style.BOLD)}'); print(f'CYAN={repr(Style.CYAN)}');",
+        ]
         env = os.environ.copy()
         env["NO_COLOR"] = "1"
         # Run in agent directory
@@ -51,7 +56,11 @@ class TestStyle:
 
     def test_color_env_var(self):
         """Test that normal env results in color constants (subprocess)"""
-        cmd = [sys.executable, "-c", "from loop import Style; print(f'BOLD={repr(Style.BOLD)}'); print(f'CYAN={repr(Style.CYAN)}');"]
+        cmd = [
+            sys.executable,
+            "-c",
+            "from loop import Style; print(f'BOLD={repr(Style.BOLD)}'); print(f'CYAN={repr(Style.CYAN)}');",
+        ]
         env = os.environ.copy()
         if "NO_COLOR" in env:
             del env["NO_COLOR"]
@@ -61,4 +70,6 @@ class TestStyle:
         result = subprocess.run(cmd, env=env, cwd=cwd, capture_output=True, text=True)
         assert result.returncode == 0
         assert "BOLD='\\x1b[1m'" in result.stdout or "BOLD='\\033[1m'" in result.stdout
-        assert "CYAN='\\x1b[36m'" in result.stdout or "CYAN='\\033[36m'" in result.stdout
+        assert (
+            "CYAN='\\x1b[36m'" in result.stdout or "CYAN='\\033[36m'" in result.stdout
+        )
