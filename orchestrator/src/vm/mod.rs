@@ -8,14 +8,19 @@
 // - Security: No host execution, full isolation
 
 pub mod config;
+#[cfg(unix)]
 pub mod firecracker;
 pub mod firewall;
 pub mod hypervisor;
+#[cfg(windows)]
+pub mod hyperv;
+#[cfg(unix)]
 pub mod jailer;
 pub mod pool;
 pub mod rootfs;
 pub mod seccomp;
 pub mod snapshot;
+#[cfg(unix)]
 pub mod vsock;
 
 // Prototype module for feasibility testing
@@ -38,14 +43,10 @@ use std::sync::Arc;
 use tokio::sync::{Mutex, OnceCell};
 
 use crate::vm::config::VmConfig;
-use crate::vm::firecracker::start_firecracker;
 use crate::vm::firewall::FirewallManager;
-use crate::vm::hypervisor::VmInstance;
-use crate::vm::jailer::{
-    start_jailed_firecracker,
-    verify_jailer_installed,
-    JailerConfig,
-};
+use crate::vm::hypervisor::{Hypervisor, VmInstance};
+#[cfg(unix)]
+use crate::vm::jailer::{start_jailed_firecracker, verify_jailer_installed, JailerConfig};
 use crate::vm::pool::{PoolConfig, SnapshotPool};
 use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
 
@@ -106,7 +107,7 @@ impl VmHandle {
 /// # Example
 ///
 /// ```no_run
-/// use ironclaw_orchestrator::vm::spawn_vm;
+/// use luminaguard_orchestrator::vm::spawn_vm;
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -153,8 +154,8 @@ pub async fn spawn_vm(task_id: &str) -> Result<VmHandle> {
 /// # Example
 ///
 /// ```no_run
-/// use ironclaw_orchestrator::vm::{spawn_vm_with_config, config::VmConfig};
-/// use ironclaw_orchestrator::vm::seccomp::{SeccompFilter, SeccompLevel};
+/// use luminaguard_orchestrator::vm::{spawn_vm_with_config, config::VmConfig};
+/// use luminaguard_orchestrator::vm::seccomp::{SeccompFilter, SeccompLevel};
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -220,18 +221,29 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
         }
     }
 
-    // Start Firecracker VM
-    let process = start_firecracker(&config_with_seccomp).await?;
+    // Start VM using the appropriate hypervisor for the platform
+    let hypervisor = get_hypervisor();
 
-    let spawn_time = process.spawn_time_ms;
+    let instance = hypervisor.spawn(&config_with_seccomp).await?;
+    let spawn_time = instance.spawn_time_ms();
 
     Ok(VmHandle {
         id: task_id.to_string(),
-        process: Arc::new(Mutex::new(Some(Box::new(process)))),
+        process: Arc::new(Mutex::new(Some(instance))),
         spawn_time_ms: spawn_time,
         config: config.clone(),
         firewall_manager: Some(firewall_manager),
     })
+}
+
+#[cfg(windows)]
+fn get_hypervisor() -> Box<dyn Hypervisor> {
+    Box::new(crate::vm::hyperv::HypervHypervisor)
+}
+
+#[cfg(not(windows))]
+fn get_hypervisor() -> Box<dyn Hypervisor> {
+    Box::new(crate::vm::firecracker::FirecrackerHypervisor)
 }
 
 /// Destroy a VM (ephemeral cleanup)
@@ -248,7 +260,7 @@ pub async fn spawn_vm_with_config(task_id: &str, config: &VmConfig) -> Result<Vm
 /// # Example
 ///
 /// ```no_run
-/// use ironclaw_orchestrator::vm::{spawn_vm, destroy_vm};
+/// use luminaguard_orchestrator::vm::{spawn_vm, destroy_vm};
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -282,7 +294,7 @@ pub async fn destroy_vm(handle: VmHandle) -> Result<()> {
 /// # Example
 ///
 /// ```no_run
-/// use ironclaw_orchestrator::vm;
+/// use luminaguard_orchestrator::vm;
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -304,7 +316,7 @@ pub async fn pool_stats() -> Result<crate::vm::pool::PoolStats> {
 /// # Example
 ///
 /// ```no_run
-/// use ironclaw_orchestrator::vm;
+/// use luminaguard_orchestrator::vm;
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -331,34 +343,37 @@ pub async fn warmup_pool() -> Result<()> {
 }
 
 #[cfg(test)]
+pub(crate) fn should_skip_hypervisor_tests() -> bool {
+    std::env::var("SKIP_HYPERVISOR_TESTS").is_ok() || cfg!(not(target_os = "linux"))
+}
+
+#[cfg(test)]
 mod inline_tests {
     use super::*;
 
     #[tokio::test]
     async fn test_vm_spawn_and_destroy() {
-        // This test requires actual Firecracker installation
-        // Skip in CI if not available
-        if !std::path::Path::new("/usr/local/bin/firecracker").exists() {
-            tracing::warn!("Skipping test: Firecracker binary not found");
+        if should_skip_hypervisor_tests() {
+            tracing::warn!("Skipping hypervisor-dependent test");
             return;
         }
 
         // Check if Firecracker resources exist
-        let kernel_path = if std::path::Path::new("/tmp/ironclaw-fc-test/vmlinux.bin").exists() {
-            "/tmp/ironclaw-fc-test/vmlinux.bin".to_string()
+        let kernel_path = if std::path::Path::new("/tmp/luminaguard-fc-test/vmlinux.bin").exists() {
+            "/tmp/luminaguard-fc-test/vmlinux.bin".to_string()
         } else {
-            tracing::warn!("Skipping test: Firecracker kernel not available at /tmp/ironclaw-fc-test/vmlinux.bin. Run: ./scripts/download-firecracker-assets.sh");
+            tracing::warn!("Skipping test: Firecracker kernel not available at /tmp/luminaguard-fc-test/vmlinux.bin. Run: ./scripts/download-firecracker-assets.sh");
             return;
         };
-        let rootfs_path = if std::path::Path::new("/tmp/ironclaw-fc-test/rootfs.ext4").exists() {
-            "/tmp/ironclaw-fc-test/rootfs.ext4".to_string()
+        let rootfs_path = if std::path::Path::new("/tmp/luminaguard-fc-test/rootfs.ext4").exists() {
+            "/tmp/luminaguard-fc-test/rootfs.ext4".to_string()
         } else {
-            tracing::warn!("Skipping test: Firecracker rootfs not available at /tmp/ironclaw-fc-test/rootfs.ext4. Run: ./scripts/download-firecracker-assets.sh");
+            tracing::warn!("Skipping test: Firecracker rootfs not available at /tmp/luminaguard-fc-test/rootfs.ext4. Run: ./scripts/download-firecracker-assets.sh");
             return;
         };
 
         // Ensure test assets exist
-        let _ = std::fs::create_dir_all("/tmp/ironclaw-fc-test");
+        let _ = std::fs::create_dir_all("/tmp/luminaguard-fc-test");
 
         use config::VmConfig;
         let config = VmConfig {
@@ -443,8 +458,8 @@ pub fn verify_network_isolation(handle: &VmHandle) -> Result<bool> {
 /// # Example
 ///
 /// ```no_run
-/// use ironclaw_orchestrator::vm::{spawn_vm_jailed, config::VmConfig};
-/// use ironclaw_orchestrator::vm::jailer::JailerConfig;
+/// use luminaguard_orchestrator::vm::{spawn_vm_jailed, config::VmConfig};
+/// use luminaguard_orchestrator::vm::jailer::JailerConfig;
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -457,6 +472,7 @@ pub fn verify_network_isolation(handle: &VmHandle) -> Result<bool> {
 ///     Ok(())
 /// }
 /// ```
+#[cfg(unix)]
 pub async fn spawn_vm_jailed(
     task_id: &str,
     vm_config: &VmConfig,
@@ -503,7 +519,7 @@ pub async fn spawn_vm_jailed(
 
     Ok(VmHandle {
         id: task_id.to_string(),
-        process: Arc::new(Mutex::new(Some(Box::new(jailer_process)))),
+        process: Arc::new(Mutex::new(Some(Box::new(jailer_process)))) ,
         spawn_time_ms: spawn_time,
         config: vm_config.clone(),
         firewall_manager: Some(firewall_manager),
@@ -526,8 +542,8 @@ pub async fn spawn_vm_jailed(
 /// # Example
 ///
 /// ```no_run
-/// use ironclaw_orchestrator::vm::{spawn_vm_jailed, destroy_vm_jailed, config::VmConfig};
-/// use ironclaw_orchestrator::vm::jailer::JailerConfig;
+/// use luminaguard_orchestrator::vm::{spawn_vm_jailed, destroy_vm_jailed, config::VmConfig};
+/// use luminaguard_orchestrator::vm::jailer::JailerConfig;
 ///
 /// #[tokio::main]
 /// async fn main() -> anyhow::Result<()> {
@@ -540,6 +556,7 @@ pub async fn spawn_vm_jailed(
 ///     Ok(())
 /// }
 /// ```
+#[cfg(unix)]
 pub async fn destroy_vm_jailed(handle: VmHandle, _jailer_config: &JailerConfig) -> Result<()> {
     tracing::info!("Destroying JAILED VM: {}", handle.id);
 
