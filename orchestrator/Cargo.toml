@@ -49,7 +49,7 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]
-libwhp = "0.1.0"
+libwhp = { git = "https://github.com/insula-rs/libwhp", rev = "3ee2119fa8a889cccbc223b0858bd1cdb1635975" }
 
 [dev-dependencies]
 # Property-based testing
