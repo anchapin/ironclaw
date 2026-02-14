@@ -1,15 +1,10 @@
-#![cfg(windows)]
-// Windows Hyper-V (WHPX) Backend
-//
-// This module implements the Hypervisor and VmInstance traits using the
-// Windows Hypervisor Platform (WHPX) API via the libwhp crate.
-
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use libwhp::win_hv_platform_defs::WHV_PARTITION_PROPERTY_CODE;
 use libwhp::{
     Partition,
     VirtualProcessor,
+    WHV_PARTITION_PROPERTY,
+    WHV_PARTITION_PROPERTY_CODE,
 };
 use std::time::Instant;
 use std::sync::{Arc, Mutex};
@@ -29,8 +24,7 @@ impl Hypervisor for HypervHypervisor {
             let instance = HypervInstance::new(config)?;
             Ok(Box::new(instance))
         }
-        #[cfg(not(windows))]
-        {
+        #[cfg(not(windows))]{
             let _ = config;
             Err(anyhow!("Hyper-V backend is only available on Windows"))
         }
@@ -59,11 +53,14 @@ impl HypervInstance {
         let mut partition = Partition::new().map_err(|e| anyhow!("Failed to create WHPX partition: {:?}", e))?;
 
         // 2. Configure partition
-        let vcpu_count = config.vcpu_count as u32;
+        let vcpu_count_u32 = config.vcpu_count as u32;
+        let partition_property = WHV_PARTITION_PROPERTY {
+            ProcessorCount: vcpu_count_u32,
+        };
         partition
             .set_property(
                 WHV_PARTITION_PROPERTY_CODE::WHV_PARTITION_PROPERTY_CODE_PROCESSOR_COUNT,
-                &vcpu_count as *const _ as *const core::ffi::c_void,
+                &partition_property,
             )
             .map_err(|e| anyhow!("Failed to set vCPU count: {:?}", e))?;
 
@@ -84,6 +81,7 @@ impl HypervInstance {
         })
     }
 }
+
 
 #[async_trait]
 impl VmInstance for HypervInstance {
@@ -137,3 +135,4 @@ mod tests {
         }
     }
 }
+
