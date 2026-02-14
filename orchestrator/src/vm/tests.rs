@@ -6,7 +6,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::vm::{destroy_vm, should_skip_hypervisor_tests, spawn_vm, verify_network_isolation};
+    use crate::vm::{destroy_vm, should_skip_hypervisor_tests, verify_network_isolation};
 
     /// Test that VM cannot be created with networking enabled
     #[tokio::test]
