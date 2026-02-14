@@ -481,7 +481,6 @@ pub async fn spawn_vm_jailed(
     tracing::info!("Spawning JAILED VM for task: {}", task_id);
 
     // Verify jailer is installed
-#[cfg(unix)]
     verify_jailer_installed().context("Jailer not installed. Please install Firecracker.")?;
 
     // Apply default seccomp filter if not specified
@@ -514,14 +513,13 @@ pub async fn spawn_vm_jailed(
     }
 
     // Start Firecracker via Jailer
-#[cfg(unix)]
     let jailer_process = start_jailed_firecracker(&vm_config_with_seccomp, jailer_config).await?;
 
     let spawn_time = jailer_process.spawn_time_ms;
 
     Ok(VmHandle {
         id: task_id.to_string(),
-        process: Arc::new(Mutex::new(Some(Box::new(jailer_process)))),
+        process: Arc::new(Mutex::new(Some(Box::new(jailer_process)))) ,
         spawn_time_ms: spawn_time,
         config: vm_config.clone(),
         firewall_manager: Some(firewall_manager),

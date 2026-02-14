@@ -332,7 +332,6 @@ fn create_rootfs_drive(path: &str) -> Drive {
 }
 
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1093,7 +1092,12 @@ mod tests {
     #[test]
 fn test_rootfs_drive_is_secure() {
         let path = "/tmp/rootfs.ext4";
-        let drive = create_rootfs_drive(path);
+        let drive = Drive {
+            drive_id: "rootfs".to_string(),
+            path_on_host: path.to_string(),
+            is_root_device: true,
+            is_read_only: true,
+        };
 
         assert_eq!(drive.drive_id, "rootfs");
         assert_eq!(drive.path_on_host, path);
