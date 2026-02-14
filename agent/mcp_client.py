@@ -332,7 +332,7 @@ class McpClient:
             "protocolVersion": "2024-11-05",
             "capabilities": {},
             "clientInfo": {
-                "name": luminaguard,
+                "name": "luminaguard",
                 "version": "0.1.0",
             },
         }
