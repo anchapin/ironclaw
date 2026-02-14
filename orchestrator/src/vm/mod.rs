@@ -43,10 +43,8 @@ use crate::vm::firewall::FirewallManager;
 use crate::vm::hypervisor::VmInstance;
 use crate::vm::jailer::{
     start_jailed_firecracker,
-    stop_jailed_firecracker,
     verify_jailer_installed,
     JailerConfig,
-    JailerProcess,
 };
 use crate::vm::pool::{PoolConfig, SnapshotPool};
 use crate::vm::seccomp::{SeccompFilter, SeccompLevel};
