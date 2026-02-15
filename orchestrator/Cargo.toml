@@ -82,6 +82,14 @@ path = "src/lib.rs"
 name = "luminaguard"
 path = "src/main.rs"
 
+[[bin]]
+name = "performance_benchmark"
+path = "src/bin/performance_benchmark.rs"
+
+[[bench]]
+name = "performance_baseline"
+harness = false
+
 [profile.dev]
 opt-level = 0
 debug = true

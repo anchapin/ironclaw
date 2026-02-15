@@ -18,8 +18,11 @@ pub mod hypervisor;
 #[cfg(unix)]
 pub mod jailer;
 pub mod pool;
+pub mod reliability;
 pub mod rootfs;
 pub mod seccomp;
+pub mod security_escape_simple;
+// pub mod security_validation;
 pub mod snapshot;
 #[cfg(unix)]
 pub mod vsock;
@@ -38,6 +41,10 @@ mod integration_tests;
 // End-to-end tests for complete workflows
 #[cfg(test)]
 mod e2e_tests;
+
+// Reliability crash tests
+#[cfg(test)]
+mod reliability_tests;
 
 #[allow(unused_imports)]
 use anyhow::{Context, Result};
