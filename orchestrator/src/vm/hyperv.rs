@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 #[cfg(windows)]
-use libwhp::Partition;
+use libwhp::{Partition, WHV_PARTITION_PROPERTY_CODE, WHV_PARTITION_PROPERTY};
 use std::time::Instant;
 #[cfg(windows)]
 use std::sync::{Arc, Mutex, mpsc};
@@ -79,7 +79,7 @@ impl HypervInstance {
 
             // 2. Configure partition
             let vcpu_count_u32 = vcpu_count as u32;
-            
+
             {
                 let mut p = match partition.lock() {
                     Ok(guard) => guard,
@@ -89,7 +89,12 @@ impl HypervInstance {
                     }
                 };
 
-                if let Err(e) = (*p).set_processor_count(vcpu_count_u32) {
+                // Set processor count using WHV_PARTITION_PROPERTY
+                let property_code = WHV_PARTITION_PROPERTY_CODE::WHvPartitionPropertyCodeProcessorCount;
+                let mut property: WHV_PARTITION_PROPERTY = unsafe { std::mem::zeroed() };
+                property.ProcessorCount = vcpu_count_u32;
+
+                if let Err(e) = (*p).set_property(property_code, &property) {
                     let _ = init_tx.send(Err(anyhow!("Failed to set vCPU count: {:?}", e)));
                     return;
                 }
@@ -122,11 +127,8 @@ impl HypervInstance {
                 match cmd {
                     HypervCommand::Stop => {
                         info!("Stopping Hyper-V partition thread for {}", vm_id);
-                        // Attempt graceful shutdown
-                        if let Ok(mut p) = partition.lock() {
-                            let _ = (*p).terminate();
-                        }
-                        break; // Breaking the loop drops the partition
+                        // Breaking the loop will drop the partition, which calls WHvDeletePartition
+                        break;
                     }
                 }
             }
