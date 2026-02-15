@@ -89,7 +89,7 @@ impl HypervInstance {
                     }
                 };
 
-                if let Err(e) = p.set_processor_count(vcpu_count_u32) {
+                if let Err(e) = (*p).set_processor_count(vcpu_count_u32) {
                     let _ = init_tx.send(Err(anyhow!("Failed to set vCPU count: {:?}", e)));
                     return;
                 }
@@ -105,7 +105,7 @@ impl HypervInstance {
                     }
                 };
 
-                if let Err(e) = p.setup() {
+                if let Err(e) = (*p).setup() {
                     let _ = init_tx.send(Err(anyhow!("Failed to setup WHPX partition: {:?}", e)));
                     return;
                 }
@@ -124,7 +124,7 @@ impl HypervInstance {
                         info!("Stopping Hyper-V partition thread for {}", vm_id);
                         // Attempt graceful shutdown
                         if let Ok(mut p) = partition.lock() {
-                            let _ = p.terminate();
+                            let _ = (*p).terminate();
                         }
                         break; // Breaking the loop drops the partition
                     }
