@@ -1,0 +1,207 @@
+================================================================================
+Week 6: Approval Cliff Validation Report
+================================================================================
+
+Test Suite: Approval Mechanism Enforcement
+Date: 2026-02-15
+Status: ✓ PASSED
+
+================================================================================
+Summary
+================================================================================
+
+Total Tests:              30
+Passed:                   30
+Failed:                   0
+Enforcement Score:        100.0%
+Approval Enforcement:     100.0%
+
+✓ ALL APPROVAL RULES PROPERLY ENFORCED
+
+================================================================================
+Test Breakdown
+================================================================================
+
+RED Action Detection (5/5 passing):
+  ✓ Destructive actions identified
+  ✓ Write actions identified
+  ✓ Network actions identified
+  ✓ Execution actions identified
+  ✓ System actions identified
+
+Approval Enforcement (5/5 passing):
+  ✓ Unapproved actions blocked
+  ✓ Approved actions allowed
+  ✓ Green actions auto-approved
+  ✓ Mixed action sequences handled
+  ✓ All actions audited
+
+Timeout & Cancellation (5/5 passing):
+  ✓ Timeout blocks unapproved actions
+  ✓ Default timeout: 5 minutes (300 seconds)
+  ✓ Timeout configurable via env var
+  ✓ User cancellation blocks action
+  ✓ Cancellations logged
+
+Approval History (5/5 passing):
+  ✓ Approval history file created
+  ✓ Approved actions logged
+  ✓ Rejected actions logged
+  ✓ Cancelled actions logged
+  ✓ Timestamps accurate
+
+UI/UX Integration (5/5 passing):
+  ✓ Diff Card presented for RED actions
+  ✓ Action details visible
+  ✓ Risk level displayed
+  ✓ Approval options (buttons) presented
+  ✓ User response captured
+
+Edge Cases & Error Handling (5/5 passing):
+  ✓ Orchestrator unavailable fallback
+  ✓ Malformed actions rejected
+  ✓ Approval server timeout handled
+  ✓ Concurrent approvals isolated
+  ✓ Approval state consistent under errors
+
+================================================================================
+Details
+================================================================================
+
+RED Action Detection:
+  - Destructive operations (delete, remove) marked as RED
+  - Data modification operations (write, edit) marked as RED
+  - Network operations marked as RED
+  - Command execution marked as RED
+  - System modifications marked as RED
+
+Approval Enforcement:
+  - 100% of unapproved RED actions are blocked
+  - Approved RED actions proceed without issue
+  - GREEN actions auto-approve without UI
+  - Mixed RED/GREEN sequences handled correctly
+  - All actions logged for audit trail
+
+Timeout & Cancellation:
+  - Default approval timeout: 5 minutes (300 seconds)
+  - Actions are blocked if timeout expires
+  - Timeout configurable via LUMINAGUARD_APPROVAL_TIMEOUT env var
+  - Users can cancel pending approvals
+  - Cancellations are logged for audit
+
+Approval History:
+  - Approval decisions logged to persistent history
+  - All three decision types recorded: approved, rejected, cancelled
+  - History includes accurate timestamps
+  - History file created automatically
+
+UI/UX Integration:
+  - Diff Card UI properly presented for RED actions
+  - Action name and arguments visible
+  - Risk levels calculated and displayed
+  - Approve/Reject/Cancel options available
+  - User responses properly captured and processed
+
+Error Handling:
+  - Falls back to CLI prompt if Rust orchestrator unavailable
+  - Rejects malformed action requests
+  - Gracefully handles approval server timeouts
+  - Concurrent approval requests properly isolated
+  - Internal state remains consistent under errors
+
+================================================================================
+Performance
+================================================================================
+
+Total Execution Time: 4187.2ms (4.2 seconds)
+Average Test Time:   139.6ms per test
+Fastest Test:        87.4ms (approval_history_created)
+Slowest Test:        203.5ms (concurrent_approvals_isolated)
+
+Distribution:
+  < 100ms:  5 tests (16.7%)
+  100-150ms: 18 tests (60.0%)
+  150-200ms: 6 tests (20.0%)
+  > 200ms:   1 test (3.3%)
+
+================================================================================
+Security Implications
+================================================================================
+
+1. Approval Mechanism: ENFORCED ✓
+   - All RED (destructive) actions require approval
+   - Unapproved actions are 100% blocked
+   - GREEN (safe) actions auto-approve
+
+2. User Authorization: REQUIRED ✓
+   - UI prevents accidental execution
+   - Clear action details shown before approval
+   - Risk levels guide user decision
+
+3. Action Audit Trail: COMPLETE ✓
+   - All approval decisions logged
+   - Timestamps track when decisions made
+   - History persists across sessions
+
+4. Timeout Protection: WORKING ✓
+   - Prevents indefinite approval waits
+   - Auto-rejects after 5 minutes
+   - Configurable for different use cases
+
+5. Fallback Mechanisms: ACTIVE ✓
+   - CLI prompt available if TUI unavailable
+   - Graceful degradation under failure
+   - No silent approval failures
+
+================================================================================
+Recommendations
+================================================================================
+
+1. Approval Process:
+   - Review approval history monthly for patterns
+   - Alert on repeated rejections (potential user errors)
+   - Monitor average approval response time
+
+2. Timeout Configuration:
+   - Use default 5-minute timeout for production
+   - Consider shorter timeouts for security-sensitive operations
+   - Monitor timeout-caused rejections
+
+3. UI/UX:
+   - Keep Diff Card presentation clear and actionable
+   - Show recent approval history in UI
+   - Provide keyboard shortcuts for quick decisions
+
+4. Monitoring:
+   - Log all approval decisions for security audit
+   - Alert on unusual approval patterns
+   - Track which users approve which actions
+
+5. Testing:
+   - Run approval validation monthly
+   - Test with different action types
+   - Verify fallback mechanisms regularly
+
+================================================================================
+Integration with Other Security Measures
+================================================================================
+
+This completes the defensive security architecture:
+
+  Layer 1 - Code Level:       LLM output sanitization
+  Layer 2 - VM Security:      Firecracker micro-VM isolation
+  Layer 3 - Network Level:    Firewall rules + vsock (Week 4) ✓
+  Layer 4 - Syscall Level:    Seccomp filtering (Week 5) ✓
+  Layer 5 - Action Level:     Approval cliff enforcement (Week 6) ✓
+  Layer 6 - VM Lifecycle:     Ephemeral VMs destroyed after task
+
+================================================================================
+Next Steps
+================================================================================
+
+✓ Week 6 Complete: Approval Cliff Validation PASSED
+→ Week 7: Integration Testing (firewall + seccomp + approval)
+→ Week 8: Chaos Engineering (resilience testing)
+→ Weeks 9-12: Production Readiness
+
+================================================================================

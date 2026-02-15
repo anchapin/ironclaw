@@ -8,6 +8,7 @@
 // - Security: No host execution, full isolation
 
 pub mod apple_hv;
+pub mod approval_cliff_tests;
 pub mod chaos;
 pub mod config;
 #[cfg(unix)]

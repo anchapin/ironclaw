@@ -1,0 +1,310 @@
+{
+  "test_results": [
+    {
+      "test_name": "destructive_action_identified",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 142.5,
+      "details": "Verify delete operations are marked as RED actions",
+      "category": "red_action_detection",
+      "action_type": "delete_file",
+      "approval_required": true
+    },
+    {
+      "test_name": "write_action_identified",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 138.3,
+      "details": "Verify write/edit operations are marked as RED actions",
+      "category": "red_action_detection",
+      "action_type": "write_file",
+      "approval_required": true
+    },
+    {
+      "test_name": "network_action_identified",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 145.7,
+      "details": "Verify network operations are marked as RED actions",
+      "category": "red_action_detection",
+      "action_type": "execute_network_command",
+      "approval_required": true
+    },
+    {
+      "test_name": "execution_action_identified",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 139.2,
+      "details": "Verify execute operations are marked as RED actions",
+      "category": "red_action_detection",
+      "action_type": "execute_command",
+      "approval_required": true
+    },
+    {
+      "test_name": "system_action_identified",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 141.8,
+      "details": "Verify system operations are marked as RED actions",
+      "category": "red_action_detection",
+      "action_type": "modify_system_config",
+      "approval_required": true
+    },
+    {
+      "test_name": "unapproved_action_blocked",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 156.4,
+      "details": "Verify RED actions are blocked without approval",
+      "category": "approval_enforcement",
+      "action_type": "delete_file",
+      "approval_required": true
+    },
+    {
+      "test_name": "approved_action_allowed",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 152.1,
+      "details": "Verify approved RED actions are allowed",
+      "category": "approval_enforcement",
+      "action_type": "delete_file",
+      "approval_required": true
+    },
+    {
+      "test_name": "green_action_auto_approved",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 89.5,
+      "details": "Verify GREEN actions auto-approve without UI",
+      "category": "approval_enforcement",
+      "action_type": "read_file",
+      "approval_required": false
+    },
+    {
+      "test_name": "mixed_action_sequence",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 187.3,
+      "details": "Verify mixed RED/GREEN action sequences handled correctly",
+      "category": "approval_enforcement",
+      "action_type": "multiple",
+      "approval_required": true
+    },
+    {
+      "test_name": "action_audit_logged",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 127.8,
+      "details": "Verify all actions are logged for audit",
+      "category": "approval_enforcement",
+      "action_type": "all",
+      "approval_required": true
+    },
+    {
+      "test_name": "approval_timeout_blocks_action",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 165.2,
+      "details": "Verify actions are blocked if approval times out",
+      "category": "timeout_and_cancellation",
+      "action_type": "delete_file",
+      "approval_required": true
+    },
+    {
+      "test_name": "timeout_default_five_minutes",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 98.6,
+      "details": "Verify default approval timeout is 5 minutes (300 seconds)",
+      "category": "timeout_and_cancellation",
+      "action_type": "timeout",
+      "approval_required": true
+    },
+    {
+      "test_name": "timeout_configurable",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 112.3,
+      "details": "Verify timeout is configurable via LUMINAGUARD_APPROVAL_TIMEOUT",
+      "category": "timeout_and_cancellation",
+      "action_type": "timeout",
+      "approval_required": true
+    },
+    {
+      "test_name": "user_cancellation_blocks_action",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 143.5,
+      "details": "Verify actions are blocked when user cancels approval",
+      "category": "timeout_and_cancellation",
+      "action_type": "delete_file",
+      "approval_required": true
+    },
+    {
+      "test_name": "cancellation_audit_logged",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 134.2,
+      "details": "Verify user cancellations are logged for audit",
+      "category": "timeout_and_cancellation",
+      "action_type": "cancel",
+      "approval_required": true
+    },
+    {
+      "test_name": "approval_history_created",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 87.4,
+      "details": "Verify approval history file is created",
+      "category": "approval_history",
+      "action_type": "history",
+      "approval_required": false
+    },
+    {
+      "test_name": "approved_actions_logged",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 145.8,
+      "details": "Verify approved actions are recorded in history",
+      "category": "approval_history",
+      "action_type": "approved",
+      "approval_required": true
+    },
+    {
+      "test_name": "rejected_actions_logged",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 149.3,
+      "details": "Verify rejected actions are recorded in history",
+      "category": "approval_history",
+      "action_type": "rejected",
+      "approval_required": true
+    },
+    {
+      "test_name": "cancelled_actions_logged",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 138.5,
+      "details": "Verify cancelled actions are recorded in history",
+      "category": "approval_history",
+      "action_type": "cancelled",
+      "approval_required": true
+    },
+    {
+      "test_name": "history_timestamp_accurate",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 91.2,
+      "details": "Verify history records have accurate timestamps",
+      "category": "approval_history",
+      "action_type": "timestamp",
+      "approval_required": false
+    },
+    {
+      "test_name": "diff_card_presented",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 167.9,
+      "details": "Verify Diff Card UI is presented for RED actions",
+      "category": "ui_ux_integration",
+      "action_type": "delete_file",
+      "approval_required": true
+    },
+    {
+      "test_name": "action_details_visible",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 155.4,
+      "details": "Verify action name and arguments are visible in UI",
+      "category": "ui_ux_integration",
+      "action_type": "all",
+      "approval_required": true
+    },
+    {
+      "test_name": "risk_level_displayed",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 162.7,
+      "details": "Verify risk level (LOW/MEDIUM/HIGH/CRITICAL) is displayed",
+      "category": "ui_ux_integration",
+      "action_type": "all",
+      "approval_required": true
+    },
+    {
+      "test_name": "approval_options_presented",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 159.2,
+      "details": "Verify Approve/Reject/Cancel buttons are available",
+      "category": "ui_ux_integration",
+      "action_type": "all",
+      "approval_required": true
+    },
+    {
+      "test_name": "response_captured",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 148.6,
+      "details": "Verify user response (approve/reject/cancel) is properly captured",
+      "category": "ui_ux_integration",
+      "action_type": "all",
+      "approval_required": true
+    },
+    {
+      "test_name": "orchestrator_unavailable_fallback",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 124.3,
+      "details": "Verify fallback to CLI prompt when orchestrator unavailable",
+      "category": "edge_cases",
+      "action_type": "fallback",
+      "approval_required": true
+    },
+    {
+      "test_name": "malformed_action_rejected",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 95.7,
+      "details": "Verify invalid actions are rejected",
+      "category": "edge_cases",
+      "action_type": "invalid",
+      "approval_required": false
+    },
+    {
+      "test_name": "approval_server_timeout",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 178.4,
+      "details": "Verify graceful handling of approval server timeouts",
+      "category": "edge_cases",
+      "action_type": "timeout",
+      "approval_required": true
+    },
+    {
+      "test_name": "concurrent_approvals_isolated",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 203.5,
+      "details": "Verify concurrent approvals don't interfere with each other",
+      "category": "edge_cases",
+      "action_type": "concurrent",
+      "approval_required": true
+    },
+    {
+      "test_name": "approval_state_consistent",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 135.8,
+      "details": "Verify approval state remains consistent under errors",
+      "category": "edge_cases",
+      "action_type": "state",
+      "approval_required": true
+    }
+  ],
+  "total_tests": 30,
+  "passed_count": 30,
+  "failed_count": 0,
+  "enforcement_score": 100.0,
+  "total_time_ms": 4187.2,
+  "approval_enforcement_rate": 100.0
+}
