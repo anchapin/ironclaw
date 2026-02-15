@@ -58,8 +58,8 @@ use anyhow::{Context, Result};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::Duration;
-use tracing::info;
+use std::time::{Duration, Instant};
+use tracing::{debug, info, warn};
 
 /// HTTP transport for remote MCP servers
 ///
@@ -111,6 +111,33 @@ pub struct HttpTransport {
 
     /// Custom HTTP headers
     custom_headers: Vec<(String, String)>,
+
+    /// Health status for each server (URL index -> last check time)
+    server_health: Arc<Mutex<Vec<(Instant, bool)>>>,
+
+    /// Health check interval
+    health_check_interval: Duration,
+
+    /// Enable automatic failover to healthy servers
+    enable_failover: bool,
+}
+
+/// Health check configuration for load balancing
+#[derive(Debug, Clone)]
+pub struct HealthCheckConfig {
+    /// Interval between health checks
+    pub check_interval: Duration,
+    /// Enable automatic failover
+    pub enable_failover: bool,
+}
+
+impl Default for HealthCheckConfig {
+    fn default() -> Self {
+        Self {
+            check_interval: Duration::from_secs(30),
+            enable_failover: true,
+        }
+    }
 }
 
 impl HttpTransport {
@@ -138,6 +165,8 @@ impl HttpTransport {
             .build()
             .expect("Failed to build HTTP client");
 
+        let server_health = vec![(Instant::now(), true)];
+
         Self {
             client,
             urls: vec![url],
@@ -148,6 +177,9 @@ impl HttpTransport {
             enable_retry: false,
             retry_config: None,
             custom_headers: Vec::new(),
+            server_health: Arc::new(Mutex::new(server_health)),
+            health_check_interval: Duration::from_secs(30),
+            enable_failover: true,
         }
     }
 
@@ -172,11 +204,15 @@ impl HttpTransport {
     /// ```
     pub fn with_load_balancing(urls: Vec<impl Into<String>>) -> Self {
         let urls: Vec<String> = urls.into_iter().map(|u| u.into()).collect();
+        let url_count = urls.len();
 
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
             .expect("Failed to build HTTP client");
+
+        // Initialize health status for each server
+        let server_health = vec![(Instant::now(), true); url_count];
 
         Self {
             client,
@@ -188,14 +224,95 @@ impl HttpTransport {
             enable_retry: false,
             retry_config: None,
             custom_headers: Vec::new(),
+            server_health: Arc::new(Mutex::new(server_health)),
+            health_check_interval: Duration::from_secs(30),
+            enable_failover: true,
         }
     }
 
     /// Get the next URL in round-robin fashion (for load balancing)
+    ///
+    /// If failover is enabled, skips unhealthy servers.
     fn get_next_url(&self) -> &str {
-        let idx = self.current_url_index.fetch_add(1, Ordering::SeqCst);
-        let position = idx % self.urls.len();
+        let start_idx = self.current_url_index.fetch_add(1, Ordering::SeqCst);
+        let url_count = self.urls.len();
+
+        if !self.enable_failover || url_count == 1 {
+            // Simple round-robin without health checks
+            let position = start_idx % url_count;
+            return &self.urls[position];
+        }
+
+        // With failover enabled, find the next healthy server
+        if let Ok(health) = self.server_health.lock() {
+            for i in 0..url_count {
+                let position = (start_idx + i) % url_count;
+                if let Some((_, is_healthy)) = health.get(position) {
+                    if *is_healthy {
+                        return &self.urls[position];
+                    }
+                }
+            }
+        }
+
+        // All servers unhealthy or couldn't check - use round-robin anyway
+        let position = start_idx % url_count;
         &self.urls[position]
+    }
+
+    /// Mark a server as healthy or unhealthy
+    fn update_server_health(&self, url_index: usize, healthy: bool) {
+        if let Ok(mut health) = self.server_health.lock() {
+            if let Some(entry) = health.get_mut(url_index) {
+                entry.0 = Instant::now();
+                entry.1 = healthy;
+                let status = if healthy { "healthy" } else { "unhealthy" };
+                debug!(
+                    "Server {} ({}) marked as {}",
+                    url_index,
+                    self.urls.get(url_index).unwrap_or(&"unknown".to_string()),
+                    status
+                );
+            }
+        }
+    }
+
+    /// Check if a server is healthy and needs re-checking
+    ///
+    /// Used by periodic health check tasks (future enhancement for Phase 3)
+    #[allow(dead_code)]
+    fn should_check_health(&self, url_index: usize) -> bool {
+        if !self.enable_failover {
+            return false;
+        }
+
+        if let Ok(health) = self.server_health.lock() {
+            if let Some((last_check, _)) = health.get(url_index) {
+                let elapsed = last_check.elapsed();
+                return elapsed > self.health_check_interval;
+            }
+        }
+
+        false
+    }
+
+    /// Enable health checks and automatic failover
+    pub fn with_health_checks(mut self, config: HealthCheckConfig) -> Self {
+        self.health_check_interval = config.check_interval;
+        self.enable_failover = config.enable_failover;
+        self
+    }
+
+    /// Set health check interval
+    pub fn with_health_check_interval(mut self, interval: Duration) -> Self {
+        self.health_check_interval = interval;
+        self
+    }
+
+    /// Enable or disable automatic failover
+    pub fn with_failover(mut self, enabled: bool) -> Self {
+        self.enable_failover = enabled;
+        self
     }
 
     /// Set the request timeout
@@ -381,8 +498,12 @@ impl HttpTransport {
     ///
     /// This is the core HTTP request logic, separated for reuse by retry logic.
     async fn send_request(&self, json: &str) -> Result<()> {
+        let url_index = self.current_url_index.load(Ordering::SeqCst);
         let url = self.get_next_url();
-        tracing::debug!("Sending HTTP POST to {}: {}", url, json);
+        debug!(
+            "Sending HTTP POST to {} (server {}): {}",
+            url, url_index, json
+        );
 
         // Build request with custom headers
         let mut request_builder = self.client.post(url);
@@ -394,14 +515,29 @@ impl HttpTransport {
         }
 
         // Send HTTP POST request
-        let http_response = request_builder
-            .body(json.to_string())
-            .send()
-            .await
-            .context("Failed to send HTTP request")?;
+        let http_response = match request_builder.body(json.to_string()).send().await {
+            Ok(resp) => resp,
+            Err(e) => {
+                warn!("HTTP request failed to server {}: {}", url, e);
+                // Mark server as unhealthy on network error
+                if self.enable_failover {
+                    self.update_server_health(url_index % self.urls.len(), false);
+                }
+                return Err(anyhow::anyhow!("Failed to send HTTP request: {}", e));
+            }
+        };
 
         // Check HTTP status
         if !http_response.status().is_success() {
+            warn!(
+                "HTTP request to {} returned status: {}",
+                url,
+                http_response.status()
+            );
+            // Mark server as unhealthy on HTTP error
+            if self.enable_failover {
+                self.update_server_health(url_index % self.urls.len(), false);
+            }
             return Err(anyhow::anyhow!(
                 "HTTP request failed with status: {}",
                 http_response.status()
@@ -414,7 +550,7 @@ impl HttpTransport {
             .await
             .context("Failed to read HTTP response body")?;
 
-        tracing::debug!("Received HTTP response: {}", response_text);
+        debug!("Received HTTP response from {}: {}", url, response_text);
 
         // Parse MCP response
         let mcp_response: McpResponse =
@@ -424,6 +560,11 @@ impl HttpTransport {
                     response_text
                 )
             })?;
+
+        // Mark server as healthy on successful request
+        if self.enable_failover {
+            self.update_server_health(url_index % self.urls.len(), true);
+        }
 
         // Store the response in the buffer for recv() to retrieve
         let mut buffer = self
@@ -469,7 +610,11 @@ impl HttpTransport {
                     }
 
                     // Don't retry or no more attempts
-                    tracing::error!("Request failed after {} attempts: {}", attempt + 1, error_msg);
+                    tracing::error!(
+                        "Request failed after {} attempts: {}",
+                        attempt + 1,
+                        error_msg
+                    );
                     last_error = Some(e);
                     break;
                 }
