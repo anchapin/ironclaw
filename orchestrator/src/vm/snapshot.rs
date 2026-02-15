@@ -156,17 +156,11 @@ impl SnapshotClient {
             .context("Failed to send request")?;
 
         if res.status().is_success() || res.status() == StatusCode::NO_CONTENT {
-            let body_bytes = res.into_body()
-                .collect()
-                .await?
-                .to_bytes();
+            let body_bytes = res.into_body().collect().await?.to_bytes();
             Ok(String::from_utf8_lossy(&body_bytes).to_string())
         } else {
             let status = res.status();
-            let body_bytes = res.into_body()
-                .collect()
-                .await?
-                .to_bytes();
+            let body_bytes = res.into_body().collect().await?.to_bytes();
             let body_str = String::from_utf8_lossy(&body_bytes);
             anyhow::bail!("Firecracker snapshot API error: {} - {}", status, body_str)
         }
@@ -225,11 +219,7 @@ pub async fn create_snapshot_with_api(
     // Call Firecracker pause API to freeze VM state
     let pause_action = serde_json::json!({ "action_type": "Pause" });
     if let Err(e) = client
-        .request(
-            hyper::Method::PUT,
-            "/actions",
-            Some(&pause_action),
-        )
+        .request(hyper::Method::PUT, "/actions", Some(&pause_action))
         .await
     {
         tracing::warn!("Failed to pause VM for snapshotting: {}", e);
@@ -278,7 +268,10 @@ pub async fn create_snapshot_with_api(
 
     let snapshot = Snapshot::new(metadata, &base_path);
     let elapsed = start.elapsed();
-    tracing::info!("Snapshot created in {:.2}ms via API", elapsed.as_secs_f64() * 1000.0);
+    tracing::info!(
+        "Snapshot created in {:.2}ms via API",
+        elapsed.as_secs_f64() * 1000.0
+    );
 
     Ok(snapshot)
 }
@@ -287,7 +280,11 @@ pub async fn create_snapshot_with_api(
 ///
 /// Used when Firecracker API is unavailable or fails
 async fn create_snapshot_placeholder(vm_id: &str, snapshot_id: &str) -> Result<Snapshot> {
-    tracing::info!("Creating placeholder snapshot {} from VM {}", snapshot_id, vm_id);
+    tracing::info!(
+        "Creating placeholder snapshot {} from VM {}",
+        snapshot_id,
+        vm_id
+    );
 
     let base_path = PathBuf::from("/var/lib/luminaguard/snapshots");
     let snapshot_dir = base_path.join(snapshot_id);
@@ -385,7 +382,10 @@ pub async fn load_snapshot_with_api(snapshot_id: &str, socket_path: &str) -> Res
     let mut client = match SnapshotClient::new(socket_path).await {
         Ok(c) => c,
         Err(e) => {
-            tracing::warn!("Failed to connect to Firecracker API for snapshot load: {}", e);
+            tracing::warn!(
+                "Failed to connect to Firecracker API for snapshot load: {}",
+                e
+            );
             // Fall back to generating VM ID without real snapshot loading
             let vm_id = format!("vm-{}-{}", snapshot_id, Uuid::new_v4());
             return Ok(vm_id);
@@ -400,11 +400,7 @@ pub async fn load_snapshot_with_api(snapshot_id: &str, socket_path: &str) -> Res
     };
 
     if let Err(e) = client
-        .request(
-            hyper::Method::PUT,
-            "/snapshot/load",
-            Some(&snapshot_params),
-        )
+        .request(hyper::Method::PUT, "/snapshot/load", Some(&snapshot_params))
         .await
     {
         tracing::warn!("Failed to load snapshot via API: {}", e);
