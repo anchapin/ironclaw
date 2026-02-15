@@ -6,12 +6,11 @@ Week 2 Security Report Generator
 Generates comprehensive security validation report for code execution defense.
 """
 
-from __future__ import annotations
-
 import json
 import sys
 from pathlib import Path
 from datetime import datetime
+from typing import Any, Dict
 
 
 class SecurityReportGenerator:
