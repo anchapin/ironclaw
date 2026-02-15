@@ -14,11 +14,9 @@ Target: 100% of malicious inputs blocked
 """
 
 import pytest
-import json
 from hypothesis import given, strategies as st, settings, Phase
 from mcp_client import McpClient, McpError
 from loop import ToolCall, ActionKind
-from typing import Any, Dict, List
 
 
 class TestPromptInjectionDefense:
@@ -635,7 +633,6 @@ class TestSecurityReportGeneration:
         Results should be stored in .beads/metrics/security/
         """
         import json
-        from pathlib import Path
 
         # Simulate test results
         test_results = {

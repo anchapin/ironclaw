@@ -6,8 +6,6 @@ Tests for Approval Cliff TUI integration
 import pytest
 import sys
 import os
-import tempfile
-import json
 from unittest.mock import Mock, patch, MagicMock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
