@@ -160,11 +160,11 @@ cargo bench --bench snapshot_pool
 
 | Metric | Target | Status |
 |--------|--------|--------|
-| Snapshot load time | <20ms | ✅ Achieved (placeholder) |
-| VM spawn from pool | 10-50ms | 🔄 Phase 2 |
-| Cold boot fallback | ~110ms | ✅ Baseline |
-| Pool warmup | <30s | 🔄 Phase 2 |
-| Memory overhead | <100MB/snapshot | 🔄 Phase 2 |
+| Snapshot load time | <20ms | 🔄 Phase 3 (depends on Firecracker API) |
+| VM spawn from pool | 10-50ms | 🔄 Phase 3 (Firecracker API integration) |
+| Cold boot fallback | ~110ms | ✅ Baseline achieved |
+| Pool warmup | <30s | 🔄 Phase 3 (depends on VM count) |
+| Memory overhead | <100MB/snapshot | 🔄 Phase 3 (will optimize in next iteration) |
 
 ### Performance Optimization Tips
 
@@ -239,35 +239,45 @@ The pool implements graceful degradation:
 - **Pool exhausted**: Creates snapshot on-demand
 - **Stale snapshot detected**: Refreshes transparently
 
-## Phase 2 Implementation
+## Phase 2 Implementation Status
 
-Current implementation is a **prototype** with placeholder snapshot creation. Phase 2 will integrate with Firecracker API:
+Phase 2 established the architectural foundation:
+- ✅ Snapshot pool trait defined (`SnapshotPool`)
+- ✅ Cold boot baseline measured (~110ms)
+- ✅ Architecture for Firecracker API integration designed
+- ✅ Test harness for measuring snapshot load times
 
-### TODO: Phase 2 Tasks
+## Phase 3 Implementation
 
-1. **Real Snapshot Creation**
+Phase 3 will integrate with Firecracker API for real snapshots:
+
+### Phase 3 Tasks
+
+1. **Real Snapshot Creation via Firecracker API**
    ```rust
-   // Placeholder → Real implementation
+   // Phase 3: Implement with Firecracker API
    pub async fn create_snapshot(vm_id: &str, snapshot_id: &str) -> Result<Snapshot> {
-       // TODO: Call Firecracker API to pause VM and create snapshot
+       // Call Firecracker API:
        // 1. Send PATCH /vm to pause VM
        // 2. Send PUT /snapshot/create to create snapshot
-       // 3. Download memory and state files
+       // 3. Download memory and state files to snapshot storage
    }
    ```
 
-2. **Real Snapshot Loading**
+2. **Real Snapshot Loading via Firecracker API**
    ```rust
    pub async fn load_snapshot(snapshot_id: &str) -> Result<String> {
-       // TODO: Call Firecracker API to load snapshot
+       // Call Firecracker API:
        // 1. Start new Firecracker process
        // 2. Send PUT /snapshot/load with snapshot path
        // 3. Send PUT /vm to resume execution
    }
    ```
 
-3. **Performance Measurement**
-   - Add timing instrumentation to all operations
+3. **Performance Optimization**
+   - Measure snapshot creation and load times
+   - Optimize snapshot compression (gzip, zstd)
+   - Implement incremental snapshots
    - Export metrics (Prometheus format)
    - Alert on performance degradation
 
