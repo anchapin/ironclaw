@@ -633,7 +633,6 @@ class TestSecurityReportGeneration:
         Results should be stored in .beads/metrics/security/
         """
         import json
-        from pathlib import Path
 
         # Simulate test results
         test_results = {
