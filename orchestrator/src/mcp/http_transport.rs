@@ -469,7 +469,11 @@ impl HttpTransport {
                     }
 
                     // Don't retry or no more attempts
-                    tracing::error!("Request failed after {} attempts: {}", attempt + 1, error_msg);
+                    tracing::error!(
+                        "Request failed after {} attempts: {}",
+                        attempt + 1,
+                        error_msg
+                    );
                     last_error = Some(e);
                     break;
                 }
