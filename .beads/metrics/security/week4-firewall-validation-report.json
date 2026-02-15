@@ -1,0 +1,279 @@
+{
+  "test_results": [
+    {
+      "test_name": "vm_network_interface_blocking",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 145.3,
+      "details": "Verify tap0 interface has DROP rules",
+      "category": "network_isolation",
+      "vms_involved": ["vm0"]
+    },
+    {
+      "test_name": "cross_vm_ping_isolation",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 132.7,
+      "details": "Verify ICMP (ping) traffic is blocked between VMs",
+      "category": "network_isolation",
+      "vms_involved": ["vm1", "vm2"]
+    },
+    {
+      "test_name": "host_to_vm_ping_blocking",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 128.5,
+      "details": "Verify host cannot ping VM via ICMP",
+      "category": "network_isolation",
+      "vms_involved": ["host", "vm0"]
+    },
+    {
+      "test_name": "vm_to_host_network_access_blocking",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 135.2,
+      "details": "Verify VM cannot initiate network connections to host",
+      "category": "network_isolation",
+      "vms_involved": ["vm0", "host"]
+    },
+    {
+      "test_name": "vsock_communication_allowed",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 89.4,
+      "details": "Verify vsock communication is not blocked by firewall",
+      "category": "network_isolation",
+      "vms_involved": ["vm0", "host"]
+    },
+    {
+      "test_name": "vm1_cannot_ping_vm2",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 156.8,
+      "details": "Verify VM1 cannot send ICMP to VM2",
+      "category": "cross_vm_communication",
+      "vms_involved": ["vm1", "vm2"]
+    },
+    {
+      "test_name": "vm1_cannot_tcp_connect_vm2",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 149.3,
+      "details": "Verify VM1 cannot TCP connect to VM2",
+      "category": "cross_vm_communication",
+      "vms_involved": ["vm1", "vm2"]
+    },
+    {
+      "test_name": "vm1_cannot_port_scan_vm2",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 167.2,
+      "details": "Verify VM1 cannot scan ports on VM2",
+      "category": "cross_vm_communication",
+      "vms_involved": ["vm1", "vm2"]
+    },
+    {
+      "test_name": "vm1_cannot_reach_vm2_broadcast",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 143.6,
+      "details": "Verify VM1 cannot reach VM2 via broadcast",
+      "category": "cross_vm_communication",
+      "vms_involved": ["vm1", "vm2"]
+    },
+    {
+      "test_name": "multiple_vm_pairs_isolated",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 234.5,
+      "details": "Verify 4 VM pairs are completely isolated",
+      "category": "cross_vm_communication",
+      "vms_involved": ["vm1", "vm2", "vm3", "vm4"]
+    },
+    {
+      "test_name": "port_scan_from_guest_blocked",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 178.9,
+      "details": "Verify nmap/port scan fails from guest VM",
+      "category": "port_scans",
+      "vms_involved": ["vm0"]
+    },
+    {
+      "test_name": "no_ports_respond_from_host",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 165.3,
+      "details": "Verify host does not respond to port probe from VM",
+      "category": "port_scans",
+      "vms_involved": ["vm0", "host"]
+    },
+    {
+      "test_name": "common_ports_blocked",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 201.7,
+      "details": "Verify SSH, HTTP, HTTPS, MySQL, PostgreSQL ports are blocked",
+      "category": "port_scans",
+      "vms_involved": ["vm0"]
+    },
+    {
+      "test_name": "port_range_scanning_blocked",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 189.4,
+      "details": "Verify range scanning (8000-8100) is blocked",
+      "category": "port_scans",
+      "vms_involved": ["vm0"]
+    },
+    {
+      "test_name": "udp_port_scanning_blocked",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 172.1,
+      "details": "Verify UDP port scanning is blocked",
+      "category": "port_scans",
+      "vms_involved": ["vm0"]
+    },
+    {
+      "test_name": "arp_spoofing_prevention",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 134.2,
+      "details": "Verify ARP spoofing attacks are prevented",
+      "category": "network_segmentation",
+      "vms_involved": ["vm0"]
+    },
+    {
+      "test_name": "dhcp_blocked",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 128.6,
+      "details": "Verify DHCP (ports 67,68) traffic is blocked",
+      "category": "network_segmentation",
+      "vms_involved": ["vm0"]
+    },
+    {
+      "test_name": "dns_resolution_blocked",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 141.3,
+      "details": "Verify DNS (port 53) traffic is blocked",
+      "category": "network_segmentation",
+      "vms_involved": ["vm0"]
+    },
+    {
+      "test_name": "http_https_traffic_blocked",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 137.8,
+      "details": "Verify HTTP (80) and HTTPS (443) traffic is blocked",
+      "category": "network_segmentation",
+      "vms_involved": ["vm0"]
+    },
+    {
+      "test_name": "icmp_traffic_blocked",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 125.4,
+      "details": "Verify ICMP (ping, etc) traffic is blocked",
+      "category": "network_segmentation",
+      "vms_involved": ["vm0"]
+    },
+    {
+      "test_name": "iptables_rules_documented",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 98.3,
+      "details": "Verify iptables rules are properly documented",
+      "category": "firewall_rules",
+      "vms_involved": ["host"]
+    },
+    {
+      "test_name": "firewall_chain_structure",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 92.1,
+      "details": "Verify LUMINAGUARD_* chain structure is correct",
+      "category": "firewall_rules",
+      "vms_involved": ["host"]
+    },
+    {
+      "test_name": "rule_priority_correct",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 87.5,
+      "details": "Verify rules are inserted with correct priority (-I for insertion)",
+      "category": "firewall_rules",
+      "vms_involved": ["host"]
+    },
+    {
+      "test_name": "rule_persistence",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 105.2,
+      "details": "Verify firewall rules persist across operations",
+      "category": "firewall_rules",
+      "vms_involved": ["host"]
+    },
+    {
+      "test_name": "cleanup_procedures",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 112.8,
+      "details": "Verify rules are properly cleaned up on VM destruction",
+      "category": "firewall_rules",
+      "vms_involved": ["host"]
+    },
+    {
+      "test_name": "firewall_rules_active",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 78.4,
+      "details": "Verify firewall rules are loaded and active",
+      "category": "verification",
+      "vms_involved": ["host"]
+    },
+    {
+      "test_name": "rules_persist_across_operations",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 145.6,
+      "details": "Verify rules persist across network operations",
+      "category": "verification",
+      "vms_involved": ["host"]
+    },
+    {
+      "test_name": "rules_cleanup_on_vm_destruction",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 134.7,
+      "details": "Verify firewall rules are cleaned up when VM is destroyed",
+      "category": "verification",
+      "vms_involved": ["host"]
+    },
+    {
+      "test_name": "rules_dont_interfere_with_vsock",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 89.2,
+      "details": "Verify firewall rules don't block vsock communication",
+      "category": "verification",
+      "vms_involved": ["vm0", "host"]
+    },
+    {
+      "test_name": "multiple_vms_have_separate_rules",
+      "passed": true,
+      "error_message": null,
+      "execution_time_ms": 156.3,
+      "details": "Verify each VM has its own firewall chain",
+      "category": "verification",
+      "vms_involved": ["vm1", "vm2", "vm3"]
+    }
+  ],
+  "total_tests": 30,
+  "passed_count": 30,
+  "failed_count": 0,
+  "isolation_score": 100.0,
+  "total_time_ms": 4021.5
+}
