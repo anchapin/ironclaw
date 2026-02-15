@@ -193,9 +193,9 @@ LLM client is imported inside `think()` to avoid circular dependencies:
 def think(state, llm_client=None):
     try:
         from llm_client import MockLLMClient, LLMConfig
-        # ... use LLM
+        pass  # use LLM
     except ImportError:
-        # Fallback to simple implementation
+        pass  # Fallback to simple implementation
 ```
 
 This allows the module to work even if `llm_client.py` is not available.
@@ -212,16 +212,18 @@ The `LLMClient` ABC allows:
 ### Planned Features
 
 1. **Anthropic Claude Support**
-   ```python
-   from llm_client import AnthropicLLMClient
-   client = AnthropicLLMClient(config)
-   ```
+
+```python
+from llm_client import AnthropicLLMClient
+client = AnthropicLLMClient(config)
+```
 
 2. **Local LLM Support (Ollama)**
-   ```python
-   from llm_client import OllamaLLMClient
-   client = OllamaLLMClient(config)
-   ```
+
+```python
+from llm_client import OllamaLLMClient
+client = OllamaLLMClient(config)
+```
 
 3. **Tool Definitions**
    - Automatic tool schema generation
