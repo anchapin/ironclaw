@@ -13,9 +13,10 @@ Tests validate that malicious inputs are blocked at multiple layers:
 Target: 100% of malicious inputs blocked
 """
 
+from __future__ import annotations
+
 import pytest
 import json
-from typing import List, Dict, Any
 from hypothesis import given, strategies as st, settings, Phase
 from mcp_client import McpClient, McpError
 from loop import ToolCall, ActionKind
