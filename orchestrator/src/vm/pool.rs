@@ -549,7 +549,7 @@ mod tests {
         let _ = std::fs::create_dir_all(&snapshot_path);
 
         // Make snapshot path read-only (on Unix)
-        
+
         #[cfg(unix)]
         {
             let mut perms = std::fs::metadata(&snapshot_path).unwrap().permissions();
